@@ -7,7 +7,8 @@ import random
 st.set_page_config(
     page_title="FLU DİJİTAL | Çalışan Portalı", 
     page_icon="💎", 
-    layout="centered"
+    layout="centered",
+    initial_sidebar_state="expanded" 
 )
 
 # --- VERİTABANI AYARLARI ---
@@ -20,7 +21,7 @@ HEADERS = {
     "Prefer": "return=representation"
 }
 
-# --- ÖZEL CSS (KUSURSUZ TASARIM VE SCROLL BAR) ---
+# --- ÖZEL CSS (MENÜ VE KART TASARIMLARI) ---
 st.markdown("""
 <style>
     .stApp { background-color: #f4f7f6; font-family: 'Inter', sans-serif; }
@@ -77,12 +78,10 @@ st.markdown("""
     }
     .feed-motto-ongoing { color: #2980b9; font-size: 12px; font-weight: bold; background: #ebf5fb; padding: 4px 8px; border-radius: 4px; display: inline-block;}
 
-    /* Özel Scrollbar (Tarayıcı içi kaydırma) */
-    .scroll-container { max-height: 280px; overflow-y: auto; padding-right: 10px; }
+    .scroll-container { max-height: 400px; overflow-y: auto; padding-right: 10px; }
     .scroll-container::-webkit-scrollbar { width: 6px; }
     .scroll-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
     .scroll-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
-    .scroll-container::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -108,7 +107,7 @@ def main():
         st.markdown('<div class="welcome-card"><h1>Görev Bulunamadı</h1><p>Lütfen yöneticinizin gönderdiği geçerli bir linke tıklayın.</p></div>', unsafe_allow_html=True)
         st.stop()
 
-    with st.spinner('Çalışma masanız hazırlanıyor...'):
+    with st.spinner('Verileriniz senkronize ediliyor...'):
         try:
             r = httpx.get(SUPABASE_URL, headers=HEADERS, params={"magic_token": f"eq.{token}"})
             r.raise_for_status()
@@ -123,32 +122,38 @@ def main():
 
     ilk_gorev = ilk_gorev_list[0]
     personel = ilk_gorev["personel_ad"]
-    tarih_tam = ilk_gorev["deadline"]
-    tarih_gun = tarih_tam.split("T")[0] 
+    # Gerçek zamanı alalım (Geçmiş veya gelecek linklere tıklansa bile bugünü baz alır)
+    tarih_gun = datetime.now().strftime("%Y-%m-%d")
 
+    # VERİ ÇEKME İŞLEMLERİ
     try:
+        # Personelin Tüm Görevleri
         r_tum = httpx.get(SUPABASE_URL, headers=HEADERS, params={"personel_ad": f"eq.{personel}"})
-        tum_gorevler = [g for g in r_tum.json() if g.get("deadline", "").startswith(tarih_gun)]
+        tum_gorevler_ham = r_tum.json()
         
-        r_sirket = httpx.get(SUPABASE_URL, headers=HEADERS)
-        sirket_gunluk_gorevler = [g for g in r_sirket.json() if g.get("deadline", "").startswith(tarih_gun)]
+        # Görevleri Ayıkla
+        bugunun_gorevleri = [g for g in tum_gorevler_ham if g.get("deadline", "").startswith(tarih_gun)]
         
-        sirket_biten_gorevler = [g for g in sirket_gunluk_gorevler if g.get("durum") == "tamamlandi"]
-        sirket_devam_eden_gorevler = [g for g in sirket_gunluk_gorevler if g.get("durum") != "tamamlandi"]
+        # Gelecek görevler (Tarihi bugünden büyük olanlar), tarihe göre sıralı
+        gelecek_gorevler = [g for g in tum_gorevler_ham if g.get("deadline", "").split("T")[0] > tarih_gun]
+        gelecek_gorevler.sort(key=lambda x: x["deadline"])
+
+        # Şirket Radarı (Sadece Bugünün İşleri)
+        r_sirket = httpx.get(SUPABASE_URL, headers=HEADERS, params={"deadline": f"like.{tarih_gun}%"})
+        sirket_gunluk = r_sirket.json()
+        sirket_biten_gorevler = [g for g in sirket_gunluk if g.get("durum") == "tamamlandi"]
+        sirket_devam_eden_gorevler = [g for g in sirket_gunluk if g.get("durum") != "tamamlandi"]
+        
     except Exception as e:
         st.error("Veriler alınırken bir sorun oluştu.")
         st.stop()
 
-    toplam_gorev = len(tum_gorevler)
-    tamamlanan = sum(1 for g in tum_gorevler if g.get("durum") == "tamamlandi")
-    ilerleme = tamamlanan / toplam_gorev if toplam_gorev > 0 else 0
-
-    # 1. HOŞGELDİN KARTI
+    # --- 1. SABİT HOŞGELDİN VE DURUM ALANI (EN ÜSTTE) ---
     tarih_formatli = datetime.strptime(tarih_gun, "%Y-%m-%d").strftime("%d.%m.%Y")
     st.markdown(f"""
         <div class="welcome-card">
             <h1>Hoş Geldin, {personel}! 👋</h1>
-            <p>📅 {tarih_formatli} Tarihli Çalışma Masan</p>
+            <p>📅 {tarih_formatli} | FLU DİJİTAL Portal</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -157,130 +162,168 @@ def main():
         st.balloons()
         st.session_state['goster_tebrik'] = False
 
-    st.markdown(f"**Günlük İlerleme:** {tamamlanan} / {toplam_gorev} Görev Tamamlandı")
+    # Genel İş Durumu (Sabit)
+    toplam_gorev = len(bugunun_gorevleri)
+    tamamlanan = sum(1 for g in bugunun_gorevleri if g.get("durum") == "tamamlandi")
+    ilerleme = tamamlanan / toplam_gorev if toplam_gorev > 0 else 0
+
+    st.markdown(f"**Günlük Genel Durum:** Bugün atanan {toplam_gorev} görevin {tamamlanan} tanesi tamamlandı. (%{int(ilerleme*100)})")
     st.progress(ilerleme)
     st.write("---")
 
-    # 2. YENİ EKLENEN ANA EKRAN RADARI (GİZLENMESİ İMKANSIZ)
-    st.markdown("### 🌐 Canlı Şirket Radarı")
-    
-    col_biten, col_devam = st.columns(2)
-    
-    # Biten İşler Sütunu
-    with col_biten:
-        st.markdown("##### 🏆 Şampiyonlar")
-        if not sirket_biten_gorevler:
-            st.info("Henüz görev bitiren yok. İlk sen ol!")
-        else:
-            html_biten = '<div class="scroll-container">'
-            for bg in reversed(sirket_biten_gorevler): # En son biten en üstte çıksın
-                isim_tam = bg['personel_ad']
-                ilk_isim = isim_tam.split()[0]
-                motto = random.choice(MOTIVASYON_BITEN).format(isim=ilk_isim)
-                html_biten += f"""
-                <div class="feed-card">
-                    <div class="feed-name"><b>{isim_tam}</b>, <i>{bg['is_tanimi'][:25]}...</i> işini tamamladı!</div>
-                    <div class="feed-motto">{motto}</div>
-                </div>"""
-            html_biten += '</div>'
-            st.markdown(html_biten, unsafe_allow_html=True)
+    # --- 2. SOL MENÜ (NAVİGASYON) ---
+    with st.sidebar:
+        st.markdown("### 🧭 Menü")
+        st.write("")
+        secim = st.radio(
+            "Gideceğiniz sekmeyi seçin:",
+            ["📋 Yapılacaklar Listen", "🌐 Canlı Şirket Radarı", "📅 Gelecek Tarihli İşler"]
+        )
+        st.write("---")
+        st.markdown("<div style='text-align:center; color:#95a5a6; font-size:12px;'>FLU DİJİTAL © 2026</div>", unsafe_allow_html=True)
 
-    # Devam Eden İşler Sütunu
-    with col_devam:
-        st.markdown("##### ⏳ Sahada Ter Dökenler")
-        if not sirket_devam_eden_gorevler:
-            st.info("Şu an bekleyen görev yok! 🌟")
-        else:
-            html_devam = '<div class="scroll-container">'
-            for dg in sirket_devam_eden_gorevler:
-                isim_tam = dg['personel_ad']
-                ilk_isim = isim_tam.split()[0]
-                motto = random.choice(MOTIVASYON_DEVAM).format(isim=ilk_isim)
-                html_devam += f"""
-                <div class="feed-card-ongoing">
-                    <div class="feed-name"><b>{isim_tam}</b>, <i>{dg['is_tanimi'][:25]}...</i> için çalışıyor.</div>
-                    <div class="feed-motto-ongoing">{motto}</div>
-                </div>"""
-            html_devam += '</div>'
-            st.markdown(html_devam, unsafe_allow_html=True)
-
-    st.write("---")
-
-    # 3. KİŞİSEL GÖREV LİSTESİ
-    st.markdown("### 📋 Yapılacaklar Listen")
-    st.write("")
-
-    for g in tum_gorevler:
-        task_id = g["id"]
-        db_is_tamam = (g.get("durum") == "tamamlandi")
-        is_checked = st.session_state.get(task_id, db_is_tamam)
-        deadline_str = g.get("deadline", "")
-        hedef_saat = deadline_str.split("T")[1][:5] if "T" in deadline_str else ""
+    # --- YARDIMCI FONKSİYON: GÖREV KARTLARI ÇİZDİRİCİ ---
+    def gorevleri_ciz(gorev_listesi, liste_baslik, is_gelecek=False):
+        st.markdown(f"### {liste_baslik}")
+        st.write("")
         
-        kalan = 0
-        try:
-            deadline_dt = datetime.strptime(deadline_str, "%Y-%m-%dT%H:%M:%S")
-            simdi = datetime.now()
-            kalan = (deadline_dt - simdi).total_seconds()
-            
-            if kalan > 0:
-                h = int(kalan // 3600)
-                m = int((kalan % 3600) // 60)
-                zaman_metni = f"<b>⏳ Kalan: {h} Saat {m} Dakika</b>"
-                sure_yuzde = max(0.0, min(1.0, 1.0 - (kalan / 43200))) 
-            else:
-                zaman_metni = "<span class='blink' style='color:#e74c3c; font-weight:bold;'>⚠️ Süresi Geçmiş Görev!</span>"
-                sure_yuzde = 1.0
-        except:
-            zaman_metni = "⏰ Süre Belirtilmedi"
-            sure_yuzde = 0.0
+        if not gorev_listesi:
+            st.info("Bu listeye ait herhangi bir görev bulunmuyor. 🎉")
+            return
 
-        col1, col2 = st.columns([0.08, 0.92])
-        with col1:
-            st.checkbox(" ", value=db_is_tamam, key=task_id)
+        for g in gorev_listesi:
+            task_id = g["id"]
+            db_is_tamam = (g.get("durum") == "tamamlandi")
+            is_checked = st.session_state.get(task_id, db_is_tamam)
+            
+            deadline_str = g.get("deadline", "")
+            hedef_tarih_gun = deadline_str.split("T")[0]
+            hedef_saat = deadline_str.split("T")[1][:5] if "T" in deadline_str else ""
+            
+            # Eğer gelecek tarihli işler sekmesindeysek kartın üstüne tarihi de yazalım
+            tarih_etiketi = f"📅 {datetime.strptime(hedef_tarih_gun, '%Y-%m-%d').strftime('%d.%m.%Y')} | " if is_gelecek else ""
+            
+            kalan = 0
+            try:
+                deadline_dt = datetime.strptime(deadline_str, "%Y-%m-%dT%H:%M:%S")
+                simdi = datetime.now()
+                kalan = (deadline_dt - simdi).total_seconds()
+                
+                if kalan > 0:
+                    gun_fark = int(kalan // 86400)
+                    kalan_saat = int((kalan % 86400) // 3600)
+                    kalan_dk = int((kalan % 3600) // 60)
+                    
+                    if is_gelecek and gun_fark > 0:
+                        zaman_metni = f"<b>⏳ Kalan: {gun_fark} Gün {kalan_saat} Saat</b>"
+                        sure_yuzde = 0.1 # Gelecek işlerde bar küçük dursun
+                    else:
+                        zaman_metni = f"<b>⏳ Kalan: {kalan_saat} Saat {kalan_dk} Dakika</b>"
+                        sure_yuzde = max(0.0, min(1.0, 1.0 - (kalan / 43200))) 
+                else:
+                    zaman_metni = "<span class='blink' style='color:#e74c3c; font-weight:bold;'>⚠️ Süresi Geçmiş Görev!</span>"
+                    sure_yuzde = 1.0
+            except:
+                zaman_metni = "⏰ Süre Belirtilmedi"
+                sure_yuzde = 0.0
+
+            col1, col2 = st.columns([0.08, 0.92])
+            with col1:
+                st.checkbox(" ", value=db_is_tamam, key=task_id)
+            
+            with col2:
+                yonetici_notu = g.get("notlar", "")
+                not_html = f'<div class="task-note">📌 <b>Yönetici Notu:</b> {yonetici_notu}</div>' if yonetici_notu else ''
+                
+                bar_renk = "#2ecc71" if is_checked else ("#e74c3c" if kalan <= 0 else "#3498db")
+                bar_html = f"""<div style="width: 100%; background-color: #ecf0f1; border-radius: 4px; height: 6px; margin-top: 10px; overflow: hidden;">
+                <div style="width: {100 if is_checked else (sure_yuzde * 100)}%; background-color: {bar_renk}; height: 100%; border-radius: 4px;"></div></div>"""
+
+                if is_checked:
+                    st.markdown(f"""<div class="task-card task-completed">
+                    <div class="task-title"><s style="color:#95a5a6;">{g["is_tanimi"]}</s> &nbsp;🏆</div>
+                    <div class="task-time">{tarih_etiketi}⏰ Hedef: {hedef_saat} | <b style="color:#2ecc71;">Görev Tamamlandı!</b></div>
+                    {bar_html}{not_html}</div>""", unsafe_allow_html=True)
+                else:
+                    st.markdown(f"""<div class="task-card">
+                    <div class="task-title">{g["is_tanimi"]}</div>
+                    <div class="task-time">{tarih_etiketi}⏰ Hedef: {hedef_saat} | {zaman_metni}</div>
+                    {bar_html}{not_html}</div>""", unsafe_allow_html=True)
+            st.write("")
+
+    # --- 3. SEKMELERE (MENÜYE) GÖRE İÇERİK DEĞİŞİMİ ---
+    
+    # SEKME 1: BUGÜNÜN İŞLERİ
+    if secim == "📋 Yapılacaklar Listen":
+        gorevleri_ciz(bugunun_gorevleri, "Bugünün Görevleri")
+
+    # SEKME 2: GELECEK İŞLER
+    elif secim == "📅 Gelecek Tarihli İşler":
+        gorevleri_ciz(gelecek_gorevler, "İleri Tarihli Görevlerin", is_gelecek=True)
+
+    # SEKME 3: ŞİRKET RADARI
+    elif secim == "🌐 Canlı Şirket Radarı":
+        st.markdown("### 🌐 Canlı Şirket Radarı")
+        st.markdown("Tüm ekibin bugün üzerindeki çalışma akışı")
+        st.write("")
         
-        with col2:
-            yonetici_notu = g.get("notlar", "")
-            not_html = f'<div class="task-note">📌 <b>Yönetici Notu:</b> {yonetici_notu}</div>' if yonetici_notu else ''
-            
-            bar_renk = "#2ecc71" if is_checked else ("#e74c3c" if kalan <= 0 else "#3498db")
-            bar_html = f"""<div style="width: 100%; background-color: #ecf0f1; border-radius: 4px; height: 6px; margin-top: 10px; overflow: hidden;">
-<div style="width: {100 if is_checked else (sure_yuzde * 100)}%; background-color: {bar_renk}; height: 100%; border-radius: 4px;"></div>
-</div>"""
-
-            if is_checked:
-                st.markdown(f"""<div class="task-card task-completed">
-<div class="task-title"><s style="color:#95a5a6;">{g["is_tanimi"]}</s> &nbsp;🏆</div>
-<div class="task-time">⏰ Hedef: {hedef_saat} | <b style="color:#2ecc71;">Görev Tamamlandı!</b></div>
-{bar_html}
-{not_html}
-</div>""", unsafe_allow_html=True)
+        col_biten, col_devam = st.columns(2)
+        
+        with col_biten:
+            st.markdown("##### 🏆 Şampiyonlar")
+            if not sirket_biten_gorevler:
+                st.info("Henüz görev bitiren yok. İlk sen ol!")
             else:
-                st.markdown(f"""<div class="task-card">
-<div class="task-title">{g["is_tanimi"]}</div>
-<div class="task-time">⏰ Hedef: {hedef_saat} | {zaman_metni}</div>
-{bar_html}
-{not_html}
-</div>""", unsafe_allow_html=True)
-                
-        st.write("") 
+                html_biten = '<div class="scroll-container">'
+                for bg in reversed(sirket_biten_gorevler): 
+                    isim_tam = bg['personel_ad']
+                    ilk_isim = isim_tam.split()[0]
+                    motto = random.choice(MOTIVASYON_BITEN).format(isim=ilk_isim)
+                    html_biten += f"""
+                    <div class="feed-card">
+                        <div class="feed-name"><b>{isim_tam}</b>, <i>{bg['is_tanimi'][:25]}...</i> işini tamamladı!</div>
+                        <div class="feed-motto">{motto}</div>
+                    </div>"""
+                html_biten += '</div>'
+                st.markdown(html_biten, unsafe_allow_html=True)
 
-    # --- TOPLU KAYDETME BUTONU ---
-    if st.button("🚀 Seçili Görevleri Tamamla ve Kaydet", use_container_width=True, type="primary"):
-        with st.spinner("Sistem güncelleniyor, Yöneticiye bilgi veriliyor..."):
-            for g in tum_gorevler:
-                task_id = g["id"]
-                db_status = g.get("durum")
-                ui_status = st.session_state.get(task_id, False)
-                yeni_durum = "tamamlandi" if ui_status else "bekliyor"
+        with col_devam:
+            st.markdown("##### ⏳ Sahada Ter Dökenler")
+            if not sirket_devam_eden_gorevler:
+                st.info("Şu an bekleyen görev yok! 🌟")
+            else:
+                html_devam = '<div class="scroll-container">'
+                for dg in sirket_devam_eden_gorevler:
+                    isim_tam = dg['personel_ad']
+                    ilk_isim = isim_tam.split()[0]
+                    motto = random.choice(MOTIVASYON_DEVAM).format(isim=ilk_isim)
+                    html_devam += f"""
+                    <div class="feed-card-ongoing">
+                        <div class="feed-name"><b>{isim_tam}</b>, <i>{dg['is_tanimi'][:25]}...</i> için çalışıyor.</div>
+                        <div class="feed-motto-ongoing">{motto}</div>
+                    </div>"""
+                html_devam += '</div>'
+                st.markdown(html_devam, unsafe_allow_html=True)
+
+    # --- TOPLU KAYDETME BUTONU (Radarda çıkmaz, sadece görevlerde çıkar) ---
+    if secim in ["📋 Yapılacaklar Listen", "📅 Gelecek Tarihli İşler"]:
+        st.write("---")
+        if st.button("🚀 Seçili Görevleri Tamamla ve Kaydet", use_container_width=True, type="primary"):
+            with st.spinner("Sistem güncelleniyor, Yöneticiye bilgi veriliyor..."):
+                tum_kaydedilecekler = bugunun_gorevleri + gelecek_gorevler
+                for g in tum_kaydedilecekler:
+                    task_id = g["id"]
+                    db_status = g.get("durum")
+                    ui_status = st.session_state.get(task_id, False)
+                    yeni_durum = "tamamlandi" if ui_status else "bekliyor"
+                    
+                    if db_status != yeni_durum:
+                        try:
+                            httpx.patch(f"{SUPABASE_URL}?id=eq.{task_id}", headers=HEADERS, json={"durum": yeni_durum})
+                        except: pass
                 
-                if db_status != yeni_durum:
-                    try:
-                        httpx.patch(f"{SUPABASE_URL}?id=eq.{task_id}", headers=HEADERS, json={"durum": yeni_durum})
-                    except: pass
-            
-            st.session_state['goster_tebrik'] = True
-            st.rerun()
+                st.session_state['goster_tebrik'] = True
+                st.rerun()
 
 if __name__ == "__main__":
     main()
