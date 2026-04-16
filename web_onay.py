@@ -5,10 +5,10 @@ import random
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
-    page_title="FlowDesk | Çalışan Portalı", 
+    page_title="FLU DİJİTAL | Çalışan Portalı", 
     page_icon="💎", 
     layout="centered",
-    initial_sidebar_state="expanded" # Yan menü artık açık gelecek
+    initial_sidebar_state="expanded" 
 )
 
 # --- VERİTABANI AYARLARI ---
@@ -62,29 +62,38 @@ st.markdown("""
     }
     button[kind="primary"]:hover { transform: scale(1.02) !important; box-shadow: 0 6px 20px rgba(46, 204, 113, 0.6) !important; }
     
-    /* Yan Menü Feed Kartları CSS */
+    /* Yan Menü Feed Kartları CSS (Biten İşler) */
     .feed-card {
-        background-color: #ffffff;
-        border-left: 4px solid #f39c12;
-        padding: 12px;
-        border-radius: 8px;
-        margin-bottom: 12px;
+        background-color: #ffffff; border-left: 4px solid #f39c12;
+        padding: 12px; border-radius: 8px; margin-bottom: 12px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
     .feed-name { font-size: 13px; color: #2c3e50; margin-bottom: 4px; }
     .feed-motto { color: #d35400; font-size: 12px; font-weight: bold; background: #fff3e0; padding: 4px 8px; border-radius: 4px; display: inline-block;}
+
+    /* Yan Menü Feed Kartları CSS (Devam Eden İşler) */
+    .feed-card-ongoing {
+        background-color: #ffffff; border-left: 4px solid #3498db;
+        padding: 12px; border-radius: 8px; margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .feed-motto-ongoing { color: #2980b9; font-size: 12px; font-weight: bold; background: #ebf5fb; padding: 4px 8px; border-radius: 4px; display: inline-block;}
 </style>
 """, unsafe_allow_html=True)
 
 # Motivasyon Sözleri Havuzu
-MOTIVASYON_SOZLERI = [
+MOTIVASYON_BITEN = [
     "🎉 Harika iş çıkardın {isim}, iyi ki bizimlesin!",
     "🚀 Eline sağlık {isim}, hızına yetişemiyoruz!",
     "👏 Muhteşem bir performans {isim}, tebrikler!",
-    "✨ Ekibin parlayan yıldızı {isim}!",
-    "🔥 İşte aradığımız enerji! Süpersin {isim}.",
-    "💎 Kaliteni yine konuşturdun {isim}, teşekkürler!",
     "🏆 Bugünün şampiyonlarından biri de sensin {isim}!"
+]
+
+MOTIVASYON_DEVAM = [
+    "💪 Kolay gelsin {isim}!",
+    "🎯 Odaklanma zamanı {isim}, başarılar!",
+    "⚡ Tempon harika {isim}, kolay gelsin!",
+    "☕ Kahveni al ve harikalar yarat {isim}!"
 ]
 
 # --- ANA MANTIK ---
@@ -114,37 +123,64 @@ def main():
     tarih_tam = ilk_gorev["deadline"]
     tarih_gun = tarih_tam.split("T")[0] 
 
-    # 1. Personelin Kendi Görevlerini Çek
+    # Verileri Çek
     try:
+        # 1. Personelin Kendi Görevleri
         r_tum = httpx.get(SUPABASE_URL, headers=HEADERS, params={"personel_ad": f"eq.{personel}"})
         tum_gorevler = [g for g in r_tum.json() if g.get("deadline", "").startswith(tarih_gun)]
         
-        # 2. Bütün Şirketin Tamamlanan Görevlerini Çek (Motivasyon Panosu İçin)
-        r_bitti = httpx.get(SUPABASE_URL, headers=HEADERS, params={"durum": "eq.tamamlandi"})
-        sirket_biten_gorevler = [g for g in r_bitti.json() if g.get("deadline", "").startswith(tarih_gun) and g.get("personel_ad") != personel]
+        # 2. Şirketin Tüm Görevleri (Biten ve Devam Edenleri Ayırmak İçin)
+        r_sirket = httpx.get(SUPABASE_URL, headers=HEADERS)
+        sirket_gunluk_gorevler = [g for g in r_sirket.json() if g.get("deadline", "").startswith(tarih_gun)]
+        
+        sirket_biten_gorevler = [g for g in sirket_gunluk_gorevler if g.get("durum") == "tamamlandi"]
+        sirket_devam_eden_gorevler = [g for g in sirket_gunluk_gorevler if g.get("durum") != "tamamlandi"]
+        
     except Exception as e:
         st.error("Veriler alınırken bir sorun oluştu.")
         st.stop()
 
-    # --- YAN MENÜ: MOTİVASYON VE EKİP AKIŞI ---
+    # --- YAN MENÜ: CANLI ŞİRKET AKIŞI ---
     with st.sidebar:
-        st.markdown("## 🏆 Günün Şampiyonları")
-        st.markdown("<p style='color:#7f8c8d; font-size:13px;'>Ekip arkadaşlarının bugün tamamladığı işler</p>", unsafe_allow_html=True)
-        st.write("---")
+        # BÖLÜM 1: Biten İşler
+        st.markdown("## 🏆 Şampiyonlar")
+        st.markdown("<p style='color:#7f8c8d; font-size:13px;'>Bugün tamamlanan görevler</p>", unsafe_allow_html=True)
         
         if not sirket_biten_gorevler:
-            st.info("Bugün henüz kimse görev tamamlamadı. İlk işi sen bitir ve liderliği al! 🚀")
+            st.info("Bugün henüz kimse görev tamamlamadı. İlk işi sen bitir! 🚀")
         else:
             for bg in sirket_biten_gorevler:
                 isim_tam = bg['personel_ad']
-                ilk_isim = isim_tam.split()[0] # Sadece ilk adını alıp daha samimi yapar (Örn: Ahmet Yılmaz -> Ahmet)
+                ilk_isim = isim_tam.split()[0]
                 is_adi = bg['is_tanimi']
-                motto = random.choice(MOTIVASYON_SOZLERI).format(isim=ilk_isim)
+                motto = random.choice(MOTIVASYON_BITEN).format(isim=ilk_isim)
                 
                 st.markdown(f"""
                 <div class="feed-card">
-                    <div class="feed-name"><b>{isim_tam}</b>, <i>{is_adi[:35]}...</i> görevini başarıyla tamamladı!</div>
+                    <div class="feed-name"><b>{isim_tam}</b>, <i>{is_adi[:30]}...</i> görevini tamamladı!</div>
                     <div class="feed-motto">{motto}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True) # Boşluk
+        
+        # BÖLÜM 2: Devam Eden İşler
+        st.markdown("## ⏳ Sahada Ter Dökenler")
+        st.markdown("<p style='color:#7f8c8d; font-size:13px;'>Şu an üzerinde çalışılan işler</p>", unsafe_allow_html=True)
+        
+        if not sirket_devam_eden_gorevler:
+            st.info("Şu an bekleyen bir iş yok. Herkes masasını temizlemiş! 🌟")
+        else:
+            for dg in sirket_devam_eden_gorevler:
+                isim_tam = dg['personel_ad']
+                ilk_isim = isim_tam.split()[0]
+                is_adi = dg['is_tanimi']
+                motto = random.choice(MOTIVASYON_DEVAM).format(isim=ilk_isim)
+                
+                st.markdown(f"""
+                <div class="feed-card-ongoing">
+                    <div class="feed-name"><b>{isim_tam}</b>, <i>{is_adi[:30]}...</i> işi için çalışıyor.</div>
+                    <div class="feed-motto-ongoing">{motto}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -173,7 +209,6 @@ def main():
     st.markdown("### 📋 Yapılacaklar Listen")
     st.write("")
 
-    # Görev Kartları ve Python Zaman Hesaplayıcı
     for g in tum_gorevler:
         task_id = g["id"]
         db_is_tamam = (g.get("durum") == "tamamlandi")
