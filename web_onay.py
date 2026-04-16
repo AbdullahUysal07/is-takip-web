@@ -1,13 +1,14 @@
 import streamlit as st
 import httpx
 from datetime import datetime
+import random
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
     page_title="FlowDesk | Çalışan Portalı", 
     page_icon="💎", 
     layout="centered",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded" # Yan menü artık açık gelecek
 )
 
 # --- VERİTABANI AYARLARI ---
@@ -60,8 +61,31 @@ st.markdown("""
         margin-top: 20px !important;
     }
     button[kind="primary"]:hover { transform: scale(1.02) !important; box-shadow: 0 6px 20px rgba(46, 204, 113, 0.6) !important; }
+    
+    /* Yan Menü Feed Kartları CSS */
+    .feed-card {
+        background-color: #ffffff;
+        border-left: 4px solid #f39c12;
+        padding: 12px;
+        border-radius: 8px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    }
+    .feed-name { font-size: 13px; color: #2c3e50; margin-bottom: 4px; }
+    .feed-motto { color: #d35400; font-size: 12px; font-weight: bold; background: #fff3e0; padding: 4px 8px; border-radius: 4px; display: inline-block;}
 </style>
 """, unsafe_allow_html=True)
+
+# Motivasyon Sözleri Havuzu
+MOTIVASYON_SOZLERI = [
+    "🎉 Harika iş çıkardın {isim}, iyi ki bizimlesin!",
+    "🚀 Eline sağlık {isim}, hızına yetişemiyoruz!",
+    "👏 Muhteşem bir performans {isim}, tebrikler!",
+    "✨ Ekibin parlayan yıldızı {isim}!",
+    "🔥 İşte aradığımız enerji! Süpersin {isim}.",
+    "💎 Kaliteni yine konuşturdun {isim}, teşekkürler!",
+    "🏆 Bugünün şampiyonlarından biri de sensin {isim}!"
+]
 
 # --- ANA MANTIK ---
 def main():
@@ -90,20 +114,45 @@ def main():
     tarih_tam = ilk_gorev["deadline"]
     tarih_gun = tarih_tam.split("T")[0] 
 
+    # 1. Personelin Kendi Görevlerini Çek
     try:
         r_tum = httpx.get(SUPABASE_URL, headers=HEADERS, params={"personel_ad": f"eq.{personel}"})
-        r_tum.raise_for_status()
-        tum_gorevler_ham = r_tum.json()
-        tum_gorevler = [g for g in tum_gorevler_ham if g.get("deadline", "").startswith(tarih_gun)]
+        tum_gorevler = [g for g in r_tum.json() if g.get("deadline", "").startswith(tarih_gun)]
+        
+        # 2. Bütün Şirketin Tamamlanan Görevlerini Çek (Motivasyon Panosu İçin)
+        r_bitti = httpx.get(SUPABASE_URL, headers=HEADERS, params={"durum": "eq.tamamlandi"})
+        sirket_biten_gorevler = [g for g in r_bitti.json() if g.get("deadline", "").startswith(tarih_gun) and g.get("personel_ad") != personel]
     except Exception as e:
-        st.error("Görev listesi alınırken bir sorun oluştu.")
+        st.error("Veriler alınırken bir sorun oluştu.")
         st.stop()
 
+    # --- YAN MENÜ: MOTİVASYON VE EKİP AKIŞI ---
+    with st.sidebar:
+        st.markdown("## 🏆 Günün Şampiyonları")
+        st.markdown("<p style='color:#7f8c8d; font-size:13px;'>Ekip arkadaşlarının bugün tamamladığı işler</p>", unsafe_allow_html=True)
+        st.write("---")
+        
+        if not sirket_biten_gorevler:
+            st.info("Bugün henüz kimse görev tamamlamadı. İlk işi sen bitir ve liderliği al! 🚀")
+        else:
+            for bg in sirket_biten_gorevler:
+                isim_tam = bg['personel_ad']
+                ilk_isim = isim_tam.split()[0] # Sadece ilk adını alıp daha samimi yapar (Örn: Ahmet Yılmaz -> Ahmet)
+                is_adi = bg['is_tanimi']
+                motto = random.choice(MOTIVASYON_SOZLERI).format(isim=ilk_isim)
+                
+                st.markdown(f"""
+                <div class="feed-card">
+                    <div class="feed-name"><b>{isim_tam}</b>, <i>{is_adi[:35]}...</i> görevini başarıyla tamamladı!</div>
+                    <div class="feed-motto">{motto}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # --- ANA İÇERİK ---
     toplam_gorev = len(tum_gorevler)
     tamamlanan = sum(1 for g in tum_gorevler if g.get("durum") == "tamamlandi")
     ilerleme = tamamlanan / toplam_gorev if toplam_gorev > 0 else 0
 
-    # --- ARAYÜZ ---
     tarih_formatli = datetime.strptime(tarih_gun, "%Y-%m-%d").strftime("%d.%m.%Y")
     st.markdown(f"""
         <div class="welcome-card">
@@ -132,7 +181,6 @@ def main():
         deadline_str = g.get("deadline", "")
         hedef_saat = deadline_str.split("T")[1][:5] if "T" in deadline_str else ""
         
-        # Python ile Güvenli Zaman Hesaplama
         kalan = 0
         try:
             deadline_dt = datetime.strptime(deadline_str, "%Y-%m-%dT%H:%M:%S")
@@ -143,7 +191,7 @@ def main():
                 h = int(kalan // 3600)
                 m = int((kalan % 3600) // 60)
                 zaman_metni = f"<b>⏳ Kalan: {h} Saat {m} Dakika</b>"
-                sure_yuzde = max(0.0, min(1.0, 1.0 - (kalan / 43200))) # 12 saat baz alınarak doluluk oranı
+                sure_yuzde = max(0.0, min(1.0, 1.0 - (kalan / 43200))) 
             else:
                 zaman_metni = "<span class='blink' style='color:#e74c3c; font-weight:bold;'>⚠️ Süresi Geçmiş Görev!</span>"
                 sure_yuzde = 1.0
@@ -159,13 +207,11 @@ def main():
             yonetici_notu = g.get("notlar", "")
             not_html = f'<div class="task-note">📌 <b>Yönetici Notu:</b> {yonetici_notu}</div>' if yonetici_notu else ''
             
-            # Dinamik İlerleme Çubuğu HTML'i
             bar_renk = "#2ecc71" if is_checked else ("#e74c3c" if kalan <= 0 else "#3498db")
             bar_html = f"""<div style="width: 100%; background-color: #ecf0f1; border-radius: 4px; height: 6px; margin-top: 10px; overflow: hidden;">
 <div style="width: {100 if is_checked else (sure_yuzde * 100)}%; background-color: {bar_renk}; height: 100%; border-radius: 4px;"></div>
 </div>"""
 
-            # HTML Tasarımının Ekrana Basılması (Boşluk Hatası Giderildi)
             if is_checked:
                 st.markdown(f"""<div class="task-card task-completed">
 <div class="task-title"><s style="color:#95a5a6;">{g["is_tanimi"]}</s> &nbsp;🏆</div>
