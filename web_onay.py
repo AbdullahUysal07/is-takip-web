@@ -1,48 +1,45 @@
 import streamlit as st
 import httpx
 
-# --- AYARLAR ---
-URL = "https://fxohhhqrhybbqqwqxejc.supabase.co/rest/v1/gorevler"
-HEADERS = {
-    "apikey": "sb_publishable_Gr83hViFqzpLLHW3Ib-iaQ_cIuQ3fe8",
-    "Authorization": "Bearer sb_secret_Wun-Hd6XmwwCWy4N5-yqMQ_Wg0kyeh2",
-    "Content-Type": "application/json"
-}
+st.set_page_config(page_title="Sadece Yazılım | Onay", page_icon="✅")
+st.image("https://sadeceyazilim.com/wp-content/uploads/2023/10/sadeceyazilim-logo.png", width=250)
+st.title("Personel İş Takip Paneli")
 
-st.set_page_config(page_title="sadeceyazilim.com | Onay", page_icon="✅")
-
-st.title("🚀 sadeceyazilim.com")
-st.subheader("Personel İş Takip Paneli")
-
-# Linkten gelen ID'yi al (?id=TOKEN)
+# URL'den ID çekme
 query_params = st.query_params
-token = query_params.get("id")
+magic_id = query_params.get("id")
 
-if token:
-    # Veritabanından bu tokene ait işleri çek
-    with httpx.Client() as client:
-        res = client.get(f"{URL}?magic_token=eq.{token}", headers=HEADERS)
-        isler = res.json()
+SUPABASE_URL = "https://fxohhhqrhybbqqwqxejc.supabase.co/rest/v1/gorevler"
+ANON_KEY = "sb_publishable_Gr83hViFqzpLLHW3Ib-iaQ_cIuQ3fe8"
+HEADERS = {"apikey": ANON_KEY, "Authorization": f"Base {ANON_KEY}"}
 
-    if isler:
-        st.write(f"### Merhaba, {isler[0]['personel_ad']}")
-        st.divider()
-        
-        for is_item in isler:
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.write(f"**Görev:** {is_item['is_tanimi']}")
-            with col2:
-                if is_item['durum'] == 'bekliyor':
-                    if st.button("Onayla", key=is_item['id']):
-                        # Durumu güncelle
-                        httpx.patch(f"{URL}?id=eq.{is_item['id']}", headers=HEADERS, json={"durum": "tamamlandi"})
-                        st.success("Onaylandı!")
-                        st.rerun()
+if magic_id:
+    try:
+        with httpx.Client() as client:
+            res = client.get(f"{SUPABASE_URL}?magic_token=eq.{magic_id}", headers=HEADERS)
+            isler = res.json()
+            
+            if isler and len(isler) > 0:
+                is_verisi = isler[0]
+                st.info(f"Merhaba **{is_verisi['personel_ad']}**, sana atanan bir iş var.")
+                st.write(f"📋 **Görev:** {is_verisi['is_tanimi']}")
+                
+                if is_verisi['durum'] == 'tamamlandi':
+                    st.success("✅ Bu işi daha önce onayladınız. Teşekkürler!")
                 else:
-                    st.write("✅ Bitti")
-            st.divider()
-    else:
-        st.error("Üzgünüz, bu linke ait bir görev bulunamadı.")
+                    if st.button("İŞİ TAMAMLADIM VE ONAYLIYORUM", type="primary"):
+                        update_res = client.patch(
+                            f"{SUPABASE_URL}?id=eq.{is_verisi['id']}",
+                            headers=HEADERS,
+                            json={"durum": "tamamlandi"}
+                        )
+                        if update_res.status_code == 204:
+                            st.balloons()
+                            st.success("Harika! İş başarıyla onaylandı.")
+                            st.rerun()
+            else:
+                st.warning("Bu linke ait bir görev bulunamadı veya link hatalı.")
+    except Exception as e:
+        st.error("Veritabanı bağlantısında bir sorun oluştu.")
 else:
     st.info("Lütfen size gönderilen özel link üzerinden giriş yapın.")
