@@ -7,8 +7,7 @@ import random
 st.set_page_config(
     page_title="FLU DİJİTAL | Çalışan Portalı", 
     page_icon="💎", 
-    layout="centered",
-    initial_sidebar_state="expanded" 
+    layout="centered"
 )
 
 # --- VERİTABANI AYARLARI ---
@@ -21,7 +20,7 @@ HEADERS = {
     "Prefer": "return=representation"
 }
 
-# --- ÖZEL CSS (KUSURSUZ TASARIM) ---
+# --- ÖZEL CSS (KUSURSUZ TASARIM VE SCROLL BAR) ---
 st.markdown("""
 <style>
     .stApp { background-color: #f4f7f6; font-family: 'Inter', sans-serif; }
@@ -62,26 +61,31 @@ st.markdown("""
     }
     button[kind="primary"]:hover { transform: scale(1.02) !important; box-shadow: 0 6px 20px rgba(46, 204, 113, 0.6) !important; }
     
-    /* Yan Menü Feed Kartları CSS (Biten İşler) */
+    /* Akış Kartları CSS */
     .feed-card {
         background-color: #ffffff; border-left: 4px solid #f39c12;
-        padding: 12px; border-radius: 8px; margin-bottom: 12px;
+        padding: 12px; border-radius: 8px; margin-bottom: 10px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
     .feed-name { font-size: 13px; color: #2c3e50; margin-bottom: 4px; }
     .feed-motto { color: #d35400; font-size: 12px; font-weight: bold; background: #fff3e0; padding: 4px 8px; border-radius: 4px; display: inline-block;}
 
-    /* Yan Menü Feed Kartları CSS (Devam Eden İşler) */
     .feed-card-ongoing {
         background-color: #ffffff; border-left: 4px solid #3498db;
-        padding: 12px; border-radius: 8px; margin-bottom: 12px;
+        padding: 12px; border-radius: 8px; margin-bottom: 10px;
         box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
     .feed-motto-ongoing { color: #2980b9; font-size: 12px; font-weight: bold; background: #ebf5fb; padding: 4px 8px; border-radius: 4px; display: inline-block;}
+
+    /* Özel Scrollbar (Tarayıcı içi kaydırma) */
+    .scroll-container { max-height: 280px; overflow-y: auto; padding-right: 10px; }
+    .scroll-container::-webkit-scrollbar { width: 6px; }
+    .scroll-container::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+    .scroll-container::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+    .scroll-container::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
 </style>
 """, unsafe_allow_html=True)
 
-# Motivasyon Sözleri Havuzu
 MOTIVASYON_BITEN = [
     "🎉 Harika iş çıkardın {isim}, iyi ki bizimlesin!",
     "🚀 Eline sağlık {isim}, hızına yetişemiyoruz!",
@@ -96,7 +100,6 @@ MOTIVASYON_DEVAM = [
     "☕ Kahveni al ve harikalar yarat {isim}!"
 ]
 
-# --- ANA MANTIK ---
 def main():
     query_params = st.query_params
     token = query_params.get("id")
@@ -123,72 +126,24 @@ def main():
     tarih_tam = ilk_gorev["deadline"]
     tarih_gun = tarih_tam.split("T")[0] 
 
-    # Verileri Çek
     try:
-        # 1. Personelin Kendi Görevleri
         r_tum = httpx.get(SUPABASE_URL, headers=HEADERS, params={"personel_ad": f"eq.{personel}"})
         tum_gorevler = [g for g in r_tum.json() if g.get("deadline", "").startswith(tarih_gun)]
         
-        # 2. Şirketin Tüm Görevleri (Biten ve Devam Edenleri Ayırmak İçin)
         r_sirket = httpx.get(SUPABASE_URL, headers=HEADERS)
         sirket_gunluk_gorevler = [g for g in r_sirket.json() if g.get("deadline", "").startswith(tarih_gun)]
         
         sirket_biten_gorevler = [g for g in sirket_gunluk_gorevler if g.get("durum") == "tamamlandi"]
         sirket_devam_eden_gorevler = [g for g in sirket_gunluk_gorevler if g.get("durum") != "tamamlandi"]
-        
     except Exception as e:
         st.error("Veriler alınırken bir sorun oluştu.")
         st.stop()
 
-    # --- YAN MENÜ: CANLI ŞİRKET AKIŞI ---
-    with st.sidebar:
-        # BÖLÜM 1: Biten İşler
-        st.markdown("## 🏆 Şampiyonlar")
-        st.markdown("<p style='color:#7f8c8d; font-size:13px;'>Bugün tamamlanan görevler</p>", unsafe_allow_html=True)
-        
-        if not sirket_biten_gorevler:
-            st.info("Bugün henüz kimse görev tamamlamadı. İlk işi sen bitir! 🚀")
-        else:
-            for bg in sirket_biten_gorevler:
-                isim_tam = bg['personel_ad']
-                ilk_isim = isim_tam.split()[0]
-                is_adi = bg['is_tanimi']
-                motto = random.choice(MOTIVASYON_BITEN).format(isim=ilk_isim)
-                
-                st.markdown(f"""
-                <div class="feed-card">
-                    <div class="feed-name"><b>{isim_tam}</b>, <i>{is_adi[:30]}...</i> görevini tamamladı!</div>
-                    <div class="feed-motto">{motto}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True) # Boşluk
-        
-        # BÖLÜM 2: Devam Eden İşler
-        st.markdown("## ⏳ Sahada Ter Dökenler")
-        st.markdown("<p style='color:#7f8c8d; font-size:13px;'>Şu an üzerinde çalışılan işler</p>", unsafe_allow_html=True)
-        
-        if not sirket_devam_eden_gorevler:
-            st.info("Şu an bekleyen bir iş yok. Herkes masasını temizlemiş! 🌟")
-        else:
-            for dg in sirket_devam_eden_gorevler:
-                isim_tam = dg['personel_ad']
-                ilk_isim = isim_tam.split()[0]
-                is_adi = dg['is_tanimi']
-                motto = random.choice(MOTIVASYON_DEVAM).format(isim=ilk_isim)
-                
-                st.markdown(f"""
-                <div class="feed-card-ongoing">
-                    <div class="feed-name"><b>{isim_tam}</b>, <i>{is_adi[:30]}...</i> işi için çalışıyor.</div>
-                    <div class="feed-motto-ongoing">{motto}</div>
-                </div>
-                """, unsafe_allow_html=True)
-
-    # --- ANA İÇERİK ---
     toplam_gorev = len(tum_gorevler)
     tamamlanan = sum(1 for g in tum_gorevler if g.get("durum") == "tamamlandi")
     ilerleme = tamamlanan / toplam_gorev if toplam_gorev > 0 else 0
 
+    # 1. HOŞGELDİN KARTI
     tarih_formatli = datetime.strptime(tarih_gun, "%Y-%m-%d").strftime("%d.%m.%Y")
     st.markdown(f"""
         <div class="welcome-card">
@@ -204,8 +159,54 @@ def main():
 
     st.markdown(f"**Günlük İlerleme:** {tamamlanan} / {toplam_gorev} Görev Tamamlandı")
     st.progress(ilerleme)
+    st.write("---")
+
+    # 2. YENİ EKLENEN ANA EKRAN RADARI (GİZLENMESİ İMKANSIZ)
+    st.markdown("### 🌐 Canlı Şirket Radarı")
+    
+    col_biten, col_devam = st.columns(2)
+    
+    # Biten İşler Sütunu
+    with col_biten:
+        st.markdown("##### 🏆 Şampiyonlar")
+        if not sirket_biten_gorevler:
+            st.info("Henüz görev bitiren yok. İlk sen ol!")
+        else:
+            html_biten = '<div class="scroll-container">'
+            for bg in reversed(sirket_biten_gorevler): # En son biten en üstte çıksın
+                isim_tam = bg['personel_ad']
+                ilk_isim = isim_tam.split()[0]
+                motto = random.choice(MOTIVASYON_BITEN).format(isim=ilk_isim)
+                html_biten += f"""
+                <div class="feed-card">
+                    <div class="feed-name"><b>{isim_tam}</b>, <i>{bg['is_tanimi'][:25]}...</i> işini tamamladı!</div>
+                    <div class="feed-motto">{motto}</div>
+                </div>"""
+            html_biten += '</div>'
+            st.markdown(html_biten, unsafe_allow_html=True)
+
+    # Devam Eden İşler Sütunu
+    with col_devam:
+        st.markdown("##### ⏳ Sahada Ter Dökenler")
+        if not sirket_devam_eden_gorevler:
+            st.info("Şu an bekleyen görev yok! 🌟")
+        else:
+            html_devam = '<div class="scroll-container">'
+            for dg in sirket_devam_eden_gorevler:
+                isim_tam = dg['personel_ad']
+                ilk_isim = isim_tam.split()[0]
+                motto = random.choice(MOTIVASYON_DEVAM).format(isim=ilk_isim)
+                html_devam += f"""
+                <div class="feed-card-ongoing">
+                    <div class="feed-name"><b>{isim_tam}</b>, <i>{dg['is_tanimi'][:25]}...</i> için çalışıyor.</div>
+                    <div class="feed-motto-ongoing">{motto}</div>
+                </div>"""
+            html_devam += '</div>'
+            st.markdown(html_devam, unsafe_allow_html=True)
 
     st.write("---")
+
+    # 3. KİŞİSEL GÖREV LİSTESİ
     st.markdown("### 📋 Yapılacaklar Listen")
     st.write("")
 
