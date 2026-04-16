@@ -20,14 +20,12 @@ HEADERS = {
     "Prefer": "return=representation"
 }
 
-# --- ÖZEL CSS (ÖNCEKİ KUSURSUZ TASARIM) ---
+# --- ÖZEL CSS (KUSURSUZ TASARIM) ---
 st.markdown("""
 <style>
-    /* Ana Arka Plan */
     .stApp { background-color: #f4f7f6; font-family: 'Inter', sans-serif; }
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
 
-    /* Hoşgeldin Kartı */
     .welcome-card {
         background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
         padding: 35px; border-radius: 20px; color: white; text-align: center;
@@ -36,30 +34,24 @@ st.markdown("""
     .welcome-card h1 { color: #ffffff !important; font-weight: 800; font-size: 34px; margin-bottom: 5px;}
     .welcome-card p { font-size: 18px; color: #d1d8e0; margin-top: 0;}
 
-    /* Checkbox Hizalaması */
     div[data-testid="stCheckbox"] label span p { display: none; }
     div[data-testid="stCheckbox"] { padding-top: 15px; } 
     
-    /* Görev Kartları (Önceki Şık Hali) */
     .task-card {
         background: #ffffff; border-radius: 12px; padding: 15px 20px;
         box-shadow: 0 4px 15px rgba(0,0,0,0.04); border-left: 6px solid #3498db;
         transition: all 0.3s ease; margin-bottom: 5px;
     }
     .task-card:hover { transform: translateX(5px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
-    
-    /* Tamamlanmış Görev Kartı */
     .task-completed { border-left: 6px solid #2ecc71; background: #f9fdfa; opacity: 0.85; }
     
     .task-title { font-size: 18px; font-weight: 700; color: #2c3e50; margin-bottom: 5px; transition: all 0.2s;}
     .task-time { font-size: 13px; color: #7f8c8d; font-weight: 600; margin-bottom: 5px;}
     .task-note { background-color: #fff8e1; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: #b78a00; border-left: 4px solid #ffc107; margin-top: 15px;}
     
-    /* Yanıp Sönen Ünlem Animasyonu */
     @keyframes blink { 0% {opacity:1;} 50% {opacity:0;} 100% {opacity:1;} }
     .blink { animation: blink 1s infinite; }
 
-    /* Modern Toplu Kaydetme Butonu */
     button[kind="primary"] {
         background: linear-gradient(to right, #11998e, #38ef7d) !important;
         color: white !important; font-weight: bold !important; border: none !important;
@@ -111,7 +103,7 @@ def main():
     tamamlanan = sum(1 for g in tum_gorevler if g.get("durum") == "tamamlandi")
     ilerleme = tamamlanan / toplam_gorev if toplam_gorev > 0 else 0
 
-    # --- ARAYÜZ (GÖRSEL ŞÖLEN) ---
+    # --- ARAYÜZ ---
     tarih_formatli = datetime.strptime(tarih_gun, "%Y-%m-%d").strftime("%d.%m.%Y")
     st.markdown(f"""
         <div class="welcome-card">
@@ -132,7 +124,7 @@ def main():
     st.markdown("### 📋 Yapılacaklar Listen")
     st.write("")
 
-    # Görev Kartları ve Python Tabanlı Zaman Hesaplayıcı
+    # Görev Kartları ve Python Zaman Hesaplayıcı
     for g in tum_gorevler:
         task_id = g["id"]
         db_is_tamam = (g.get("durum") == "tamamlandi")
@@ -140,7 +132,7 @@ def main():
         deadline_str = g.get("deadline", "")
         hedef_saat = deadline_str.split("T")[1][:5] if "T" in deadline_str else ""
         
-        # PYTHON İLE KUSURSUZ ZAMAN HESAPLAMA (Hesaplanıyor hatasını kökten çözer)
+        # Python ile Güvenli Zaman Hesaplama
         kalan = 0
         try:
             deadline_dt = datetime.strptime(deadline_str, "%Y-%m-%dT%H:%M:%S")
@@ -150,9 +142,8 @@ def main():
             if kalan > 0:
                 h = int(kalan // 3600)
                 m = int((kalan % 3600) // 60)
-                s = int(kalan % 60)
-                zaman_metni = f"<b>⏳ Kalan: {h}s {m}dk {s}sn</b>"
-                sure_yuzde = max(0.0, min(1.0, 1.0 - (kalan / 43200))) # 12 saat üzerinden oran
+                zaman_metni = f"<b>⏳ Kalan: {h} Saat {m} Dakika</b>"
+                sure_yuzde = max(0.0, min(1.0, 1.0 - (kalan / 43200))) # 12 saat baz alınarak doluluk oranı
             else:
                 zaman_metni = "<span class='blink' style='color:#e74c3c; font-weight:bold;'>⚠️ Süresi Geçmiş Görev!</span>"
                 sure_yuzde = 1.0
@@ -168,64 +159,27 @@ def main():
             yonetici_notu = g.get("notlar", "")
             not_html = f'<div class="task-note">📌 <b>Yönetici Notu:</b> {yonetici_notu}</div>' if yonetici_notu else ''
             
-            # Tamamlanmış ise barı yeşil doldur, gecikmişse kırmızı yap, normalde mavi
+            # Dinamik İlerleme Çubuğu HTML'i
             bar_renk = "#2ecc71" if is_checked else ("#e74c3c" if kalan <= 0 else "#3498db")
-            bar_html = f"""
-            <div style="width: 100%; background-color: #ecf0f1; border-radius: 4px; height: 6px; margin-top: 10px; overflow: hidden;">
-                <div id="bar_{task_id}" style="width: {100 if is_checked else (sure_yuzde * 100)}%; background-color: {bar_renk}; height: 100%; border-radius: 4px; transition: width 1s linear;"></div>
-            </div>
-            """
+            bar_html = f"""<div style="width: 100%; background-color: #ecf0f1; border-radius: 4px; height: 6px; margin-top: 10px; overflow: hidden;">
+<div style="width: {100 if is_checked else (sure_yuzde * 100)}%; background-color: {bar_renk}; height: 100%; border-radius: 4px;"></div>
+</div>"""
 
-            # Canlı JavaScript Sayacı (Python'un hesapladığı metni devralır)
-            js_script = f"""
-            <script>
-                (function() {{
-                    const el = document.getElementById('timer_{task_id}');
-                    const bar = document.getElementById('bar_{task_id}');
-                    const target = new Date("{deadline_str.replace('T', ' ')}").getTime();
-                    const is_done = "{str(is_checked).lower()}" === "true";
-                    
-                    if(is_done) return;
-                    
-                    setInterval(() => {{
-                        const diff = target - new Date().getTime();
-                        if (diff <= 0) {{
-                            if(el) el.innerHTML = "⏰ Hedef: {hedef_saat} | <span class='blink' style='color:#e74c3c; font-weight:bold;'>⚠️ Süresi Geçmiş Görev!</span>";
-                            if(bar) {{ bar.style.width = "100%"; bar.style.backgroundColor = "#e74c3c"; }}
-                        }} else {{
-                            const h = Math.floor(diff / (1000 * 60 * 60));
-                            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-                            const s = Math.floor((diff % (1000 * 60)) / 1000);
-                            if(el) el.innerHTML = "⏰ Hedef: {hedef_saat} | <b>⏳ Kalan: " + h + "s " + m + "dk " + s + "sn</b>";
-                            
-                            let p = 1.0 - (diff / (43200 * 1000));
-                            if(bar) bar.style.width = (Math.max(0, Math.min(1, p)) * 100) + "%";
-                        }}
-                    }}, 1000);
-                }})();
-            </script>
-            """
-
-            # Kart HTML'ini oluştur
+            # HTML Tasarımının Ekrana Basılması (Boşluk Hatası Giderildi)
             if is_checked:
-                st.markdown(f"""
-                <div class="task-card task-completed">
-                    <div class="task-title"><s style="color:#95a5a6;">{g["is_tanimi"]}</s> &nbsp;🏆</div>
-                    <div class="task-time">⏰ Hedef: {hedef_saat} | <b style="color:#2ecc71;">Görev Tamamlandı!</b></div>
-                    {bar_html}
-                    {not_html}
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"""<div class="task-card task-completed">
+<div class="task-title"><s style="color:#95a5a6;">{g["is_tanimi"]}</s> &nbsp;🏆</div>
+<div class="task-time">⏰ Hedef: {hedef_saat} | <b style="color:#2ecc71;">Görev Tamamlandı!</b></div>
+{bar_html}
+{not_html}
+</div>""", unsafe_allow_html=True)
             else:
-                st.markdown(f"""
-                <div class="task-card">
-                    <div class="task-title">{g["is_tanimi"]}</div>
-                    <div class="task-time" id="timer_{task_id}">⏰ Hedef: {hedef_saat} | {zaman_metni}</div>
-                    {bar_html}
-                    {not_html}
-                    {js_script}
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(f"""<div class="task-card">
+<div class="task-title">{g["is_tanimi"]}</div>
+<div class="task-time">⏰ Hedef: {hedef_saat} | {zaman_metni}</div>
+{bar_html}
+{not_html}
+</div>""", unsafe_allow_html=True)
                 
         st.write("") 
 
