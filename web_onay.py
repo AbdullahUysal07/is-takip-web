@@ -3,12 +3,12 @@ import httpx
 from datetime import datetime
 import random
 
-# --- SAYFA AYARLARI ---
+# --- SAYFA AYARLARI (Mobil için "auto" yapıldı) ---
 st.set_page_config(
     page_title="FLU DİJİTAL | Çalışan Portalı", 
     page_icon="💎", 
     layout="centered",
-    initial_sidebar_state="expanded" 
+    initial_sidebar_state="auto" 
 )
 
 # --- VERİTABANI AYARLARI ---
@@ -21,20 +21,11 @@ HEADERS = {
     "Prefer": "return=representation"
 }
 
-# --- ÖZEL TASARIM (KESİN MOBİL UYUMLU CSS) ---
+# --- MOBİL UYUMLU ÖZEL CSS ---
 st.markdown("""
 <style>
-    /* Temel Ayarlar */
     .stApp { background-color: #f8fafc; font-family: 'Inter', sans-serif; }
-    
-    /* Menü Butonu ve Header */
-    header[data-testid="stHeader"] { background-color: transparent !important; }
-    button[data-testid="stSidebarCollapseButton"] {
-        background-color: #1e293b !important;
-        color: white !important;
-        border-radius: 8px !important;
-        margin: 10px !important;
-    }
+    #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
 
     /* Hoşgeldin Kartı */
     .welcome-card {
@@ -54,7 +45,7 @@ st.markdown("""
     .task-title { font-size: 16px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
     .card-meta { font-size: 12px; color: #64748b; font-weight: 600; margin-bottom: 8px; display: block; }
     
-    /* Radar Özel */
+    /* Radar Detayları */
     .radar-card {
         background: #ffffff; padding: 12px; border-radius: 10px; margin-bottom: 10px;
         border-left: 4px solid #f59e0b; box-shadow: 0 1px 5px rgba(0,0,0,0.05);
@@ -63,20 +54,25 @@ st.markdown("""
     .motto-text { color: #d35400; font-size: 11.5px; font-weight: bold; background: #fff3e0; padding: 3px 8px; border-radius: 4px; display: inline-block; margin-top: 5px;}
     .motto-ongoing { color: #2563eb; background: #eff6ff; }
 
-    /* Not Alanı */
     .task-note { background: #fff8e1; padding: 10px; border-radius: 8px; font-size: 12.5px; color: #92400e; border: 1px solid #fde68a; margin-top: 10px; }
     
-    /* Sidebar Yazıları */
+    /* Yan Menü Yazı Rengi Fix */
     [data-testid="stSidebarNav"] span { color: #1e293b !important; font-weight: 600 !important; }
-    section[data-testid="stSidebar"] { background-color: #ffffff !important; }
+    section[data-testid="stSidebar"] { background-color: #ffffff !important; border-right: 1px solid #e2e8f0; }
 
-    /* Kaydet Butonu Tasarımı */
+    /* Kaydet Butonu */
     div.stButton > button:first-child {
         background: linear-gradient(to right, #11998e, #38ef7d) !important;
         color: white !important; font-weight: bold !important; border: none !important;
         border-radius: 12px !important; padding: 12px 24px !important;
         width: 100% !important; box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3) !important;
-        font-size: 16px !important;
+    }
+    
+    /* Menü Butonu (Mobilde Kaybolmaması İçin) */
+    button[data-testid="stSidebarCollapseButton"] {
+        background-color: #1e293b !important;
+        color: white !important;
+        border-radius: 8px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -85,16 +81,16 @@ MOTIVASYON_BITEN = ["Müthişsin {isim}!", "Eline sağlık {isim}!", "Harikasın
 MOTIVASYON_DEVAM = ["Kolay gelsin {isim}!", "Başarılar {isim}!", "İyi çalışmalar {isim}!"]
 
 def main():
-    # 1. Giriş Kontrolü
     token = st.query_params.get("id")
     if not token:
-        st.markdown('<div class="welcome-card"><h1>Giriş Yapılamadı</h1><p>Lütfen size özel gönderilen linki kullanın.</p></div>', unsafe_allow_html=True)
+        st.markdown('<div class="welcome-card"><h1>FLU DİJİTAL</h1><p>Lütfen size iletilen özel linke tıklayın.</p></div>', unsafe_allow_html=True)
         st.stop()
 
-    # 2. Veri Çekme
     try:
-        resp = httpx.get(SUPABASE_URL, headers=HEADERS, timeout=10)
-        all_tasks = resp.json()
+        # Mobil hızı için timeout eklendi
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(SUPABASE_URL, headers=HEADERS)
+            all_tasks = resp.json()
         
         user_entry = [t for t in all_tasks if t.get("magic_token") == token]
         if not user_entry:
@@ -104,14 +100,14 @@ def main():
         current_user = user_entry[0]["personel_ad"]
         today_str = datetime.now().strftime("%Y-%m-%d")
 
-        # Filtreleme (Senin istediğin 3 altın kural)
+        # Filtreleme Kuralları
         my_tasks_today = [t for t in all_tasks if t.get("personel_ad") == current_user and t.get("deadline", "").startswith(today_str)]
         radar_tasks_today = [t for t in all_tasks if t.get("deadline", "").startswith(today_str)]
         future_all_tasks = [t for t in all_tasks if t.get("deadline", "").split("T")[0] > today_str]
         future_all_tasks.sort(key=lambda x: x.get("deadline", ""))
 
-    except:
-        st.error("Veri bağlantısı kurulamadı. Sayfayı yenileyin.")
+    except Exception as e:
+        st.error("Veriler alınırken bir sorun oluştu. Lütfen bağlantınızı kontrol edin.")
         st.stop()
 
     # --- ÜST PANEL ---
@@ -135,11 +131,9 @@ def main():
         st.markdown("### 💎 FLU DİJİTAL")
         tab = st.radio("MENÜ", ["📋 Yapılacaklar Listem", "🌐 Canlı Şirket Radarı", "📅 Gelecek Tarihli İşler"])
         st.write("---")
-        st.caption("Menü sol üstteki butondan yönetilebilir.")
+        st.caption("v2.8 Stabil Sürüm")
 
-    # --- İÇERİK SEKMELERİ ---
-
-    # SEKME 1: Yapılacaklar Listem (Yalnızca Kendi İşleri)
+    # --- SEKME 1: YAPILACAKLAR ---
     if tab == "📋 Yapılacaklar Listem":
         st.subheader("📌 Senin Bugünkü Görevlerin")
         if not my_tasks_today:
@@ -168,15 +162,15 @@ def main():
                         new_s = "tamamlandi" if st.session_state.get(t["id"]) else "bekliyor"
                         if t["durum"] != new_s:
                             httpx.patch(f"{SUPABASE_URL}?id=eq.{t['id']}", headers=HEADERS, json={"durum": new_s})
-                    st.session_state["done_msg"] = "Harika! Görevlerin başarıyla güncellendi."
+                    st.session_state["done_msg"] = "Başarıyla güncellendi!"
                     st.rerun()
 
-    # SEKME 2: Canlı Şirket Radarı (Herkesin Bugünkü İşleri)
+    # --- SEKME 2: ŞİRKET RADARI ---
     elif tab == "🌐 Canlı Şirket Radarı":
-        st.subheader("📡 Bugün Ekipte Neler Oluyor?")
-        col1, col2 = st.columns(2)
+        st.subheader("📡 Ekipte Bugün Neler Oluyor?")
+        c1, c2 = st.columns(2)
         
-        with col1:
+        with c1:
             st.markdown("##### 🏆 Şampiyonlar")
             done_today = [t for t in radar_tasks_today if t.get("durum") == "tamamlandi"]
             if not done_today: st.caption("Henüz biten iş yok.")
@@ -194,7 +188,7 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
         
-        with col2:
+        with c2:
             st.markdown("##### ⏳ Devam Edenler")
             on_today = [t for t in radar_tasks_today if t.get("durum") != "tamamlandi"]
             if not on_today: st.caption("Aktif bekleyen iş yok.")
@@ -212,7 +206,7 @@ def main():
                 </div>
                 """, unsafe_allow_html=True)
 
-    # SEKME 3: Gelecek İşler (Herkesin İleri Tarihli İşleri)
+    # --- SEKME 3: GELECEK İŞLER ---
     elif tab == "📅 Gelecek Tarihli İşler":
         st.subheader("📅 Planlanan Gelecek İşler")
         if not future_all_tasks:
