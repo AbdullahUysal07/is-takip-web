@@ -21,7 +21,7 @@ HEADERS = {
     "Prefer": "return=representation"
 }
 
-# --- ÖZEL CSS (MENÜ VE KART TASARIMLARI) ---
+# --- ÖZEL CSS (KUSURSUZ TASARIM) ---
 st.markdown("""
 <style>
     .stApp { background-color: #f4f7f6; font-family: 'Inter', sans-serif; }
@@ -122,33 +122,26 @@ def main():
 
     ilk_gorev = ilk_gorev_list[0]
     personel = ilk_gorev["personel_ad"]
-    # Gerçek zamanı alalım (Geçmiş veya gelecek linklere tıklansa bile bugünü baz alır)
     tarih_gun = datetime.now().strftime("%Y-%m-%d")
 
     # VERİ ÇEKME İŞLEMLERİ
     try:
-        # Personelin Tüm Görevleri
         r_tum = httpx.get(SUPABASE_URL, headers=HEADERS, params={"personel_ad": f"eq.{personel}"})
         tum_gorevler_ham = r_tum.json()
         
-        # Görevleri Ayıkla
         bugunun_gorevleri = [g for g in tum_gorevler_ham if g.get("deadline", "").startswith(tarih_gun)]
-        
-        # Gelecek görevler (Tarihi bugünden büyük olanlar), tarihe göre sıralı
         gelecek_gorevler = [g for g in tum_gorevler_ham if g.get("deadline", "").split("T")[0] > tarih_gun]
         gelecek_gorevler.sort(key=lambda x: x["deadline"])
 
-        # Şirket Radarı (Sadece Bugünün İşleri)
         r_sirket = httpx.get(SUPABASE_URL, headers=HEADERS, params={"deadline": f"like.{tarih_gun}%"})
         sirket_gunluk = r_sirket.json()
         sirket_biten_gorevler = [g for g in sirket_gunluk if g.get("durum") == "tamamlandi"]
         sirket_devam_eden_gorevler = [g for g in sirket_gunluk if g.get("durum") != "tamamlandi"]
-        
     except Exception as e:
         st.error("Veriler alınırken bir sorun oluştu.")
         st.stop()
 
-    # --- 1. SABİT HOŞGELDİN VE DURUM ALANI (EN ÜSTTE) ---
+    # --- 1. SABİT HOŞGELDİN ALANI ---
     tarih_formatli = datetime.strptime(tarih_gun, "%Y-%m-%d").strftime("%d.%m.%Y")
     st.markdown(f"""
         <div class="welcome-card">
@@ -162,7 +155,6 @@ def main():
         st.balloons()
         st.session_state['goster_tebrik'] = False
 
-    # Genel İş Durumu (Sabit)
     toplam_gorev = len(bugunun_gorevleri)
     tamamlanan = sum(1 for g in bugunun_gorevleri if g.get("durum") == "tamamlandi")
     ilerleme = tamamlanan / toplam_gorev if toplam_gorev > 0 else 0
@@ -171,7 +163,7 @@ def main():
     st.progress(ilerleme)
     st.write("---")
 
-    # --- 2. SOL MENÜ (NAVİGASYON) ---
+    # --- 2. SOL MENÜ ---
     with st.sidebar:
         st.markdown("### 🧭 Menü")
         st.write("")
@@ -182,7 +174,7 @@ def main():
         st.write("---")
         st.markdown("<div style='text-align:center; color:#95a5a6; font-size:12px;'>FLU DİJİTAL © 2026</div>", unsafe_allow_html=True)
 
-    # --- YARDIMCI FONKSİYON: GÖREV KARTLARI ÇİZDİRİCİ ---
+    # --- YARDIMCI FONKSİYON ---
     def gorevleri_ciz(gorev_listesi, liste_baslik, is_gelecek=False):
         st.markdown(f"### {liste_baslik}")
         st.write("")
@@ -200,7 +192,6 @@ def main():
             hedef_tarih_gun = deadline_str.split("T")[0]
             hedef_saat = deadline_str.split("T")[1][:5] if "T" in deadline_str else ""
             
-            # Eğer gelecek tarihli işler sekmesindeysek kartın üstüne tarihi de yazalım
             tarih_etiketi = f"📅 {datetime.strptime(hedef_tarih_gun, '%Y-%m-%d').strftime('%d.%m.%Y')} | " if is_gelecek else ""
             
             kalan = 0
@@ -216,7 +207,7 @@ def main():
                     
                     if is_gelecek and gun_fark > 0:
                         zaman_metni = f"<b>⏳ Kalan: {gun_fark} Gün {kalan_saat} Saat</b>"
-                        sure_yuzde = 0.1 # Gelecek işlerde bar küçük dursun
+                        sure_yuzde = 0.1 
                     else:
                         zaman_metni = f"<b>⏳ Kalan: {kalan_saat} Saat {kalan_dk} Dakika</b>"
                         sure_yuzde = max(0.0, min(1.0, 1.0 - (kalan / 43200))) 
@@ -236,32 +227,42 @@ def main():
                 not_html = f'<div class="task-note">📌 <b>Yönetici Notu:</b> {yonetici_notu}</div>' if yonetici_notu else ''
                 
                 bar_renk = "#2ecc71" if is_checked else ("#e74c3c" if kalan <= 0 else "#3498db")
-                bar_html = f"""<div style="width: 100%; background-color: #ecf0f1; border-radius: 4px; height: 6px; margin-top: 10px; overflow: hidden;">
-                <div style="width: {100 if is_checked else (sure_yuzde * 100)}%; background-color: {bar_renk}; height: 100%; border-radius: 4px;"></div></div>"""
+                bar_html = f"""
+                <div style="width: 100%; background-color: #ecf0f1; border-radius: 4px; height: 6px; margin-top: 10px; overflow: hidden;">
+                    <div style="width: {100 if is_checked else (sure_yuzde * 100)}%; background-color: {bar_renk}; height: 100%; border-radius: 4px;"></div>
+                </div>
+                """
 
+                # Hata yaratan blok düzeltildi. (Değişkenler metne aktarılıp markdown'a öyle basıldı)
                 if is_checked:
-                    st.markdown(f"""<div class="task-card task-completed">
-                    <div class="task-title"><s style="color:#95a5a6;">{g["is_tanimi"]}</s> &nbsp;🏆</div>
-                    <div class="task-time">{tarih_etiketi}⏰ Hedef: {hedef_saat} | <b style="color:#2ecc71;">Görev Tamamlandı!</b></div>
-                    {bar_html}{not_html}</div>""", unsafe_allow_html=True)
+                    kart_html = f"""
+                    <div class="task-card task-completed">
+                        <div class="task-title"><s style="color:#95a5a6;">{g['is_tanimi']}</s> &nbsp;🏆</div>
+                        <div class="task-time">{tarih_etiketi}⏰ Hedef: {hedef_saat} | <b style="color:#2ecc71;">Görev Tamamlandı!</b></div>
+                        {bar_html}
+                        {not_html}
+                    </div>
+                    """
+                    st.markdown(kart_html, unsafe_allow_html=True)
                 else:
-                    st.markdown(f"""<div class="task-card">
-                    <div class="task-title">{g["is_tanimi"]}</div>
-                    <div class="task-time">{tarih_etiketi}⏰ Hedef: {hedef_saat} | {zaman_metni}</div>
-                    {bar_html}{not_html}</div>""", unsafe_allow_html=True)
+                    kart_html = f"""
+                    <div class="task-card">
+                        <div class="task-title">{g['is_tanimi']}</div>
+                        <div class="task-time">{tarih_etiketi}⏰ Hedef: {hedef_saat} | {zaman_metni}</div>
+                        {bar_html}
+                        {not_html}
+                    </div>
+                    """
+                    st.markdown(kart_html, unsafe_allow_html=True)
             st.write("")
 
-    # --- 3. SEKMELERE (MENÜYE) GÖRE İÇERİK DEĞİŞİMİ ---
-    
-    # SEKME 1: BUGÜNÜN İŞLERİ
+    # --- 3. İÇERİK DEĞİŞİMİ ---
     if secim == "📋 Yapılacaklar Listen":
         gorevleri_ciz(bugunun_gorevleri, "Bugünün Görevleri")
 
-    # SEKME 2: GELECEK İŞLER
     elif secim == "📅 Gelecek Tarihli İşler":
         gorevleri_ciz(gelecek_gorevler, "İleri Tarihli Görevlerin", is_gelecek=True)
 
-    # SEKME 3: ŞİRKET RADARI
     elif secim == "🌐 Canlı Şirket Radarı":
         st.markdown("### 🌐 Canlı Şirket Radarı")
         st.markdown("Tüm ekibin bugün üzerindeki çalışma akışı")
@@ -305,7 +306,7 @@ def main():
                 html_devam += '</div>'
                 st.markdown(html_devam, unsafe_allow_html=True)
 
-    # --- TOPLU KAYDETME BUTONU (Radarda çıkmaz, sadece görevlerde çıkar) ---
+    # --- TOPLU KAYDETME BUTONU ---
     if secim in ["📋 Yapılacaklar Listen", "📅 Gelecek Tarihli İşler"]:
         st.write("---")
         if st.button("🚀 Seçili Görevleri Tamamla ve Kaydet", use_container_width=True, type="primary"):
