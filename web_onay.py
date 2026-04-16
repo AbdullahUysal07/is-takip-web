@@ -20,11 +20,11 @@ HEADERS = {
     "Prefer": "return=representation"
 }
 
-# --- ÖZEL CSS (BAŞTAN ÇIKARICI ARAYÜZ) ---
+# --- ÖZEL CSS (BAŞTAN ÇIKARICI VE TEMİZ ARAYÜZ) ---
 st.markdown("""
 <style>
-    /* Ana Arka Plan ve Temizleme */
-    .stApp { background-color: #f8f9fa; font-family: 'Inter', sans-serif; }
+    /* Ana Arka Plan */
+    .stApp { background-color: #f4f7f6; font-family: 'Inter', sans-serif; }
     #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {visibility: hidden;}
 
     /* Hoşgeldin Kartı (Premium Gradient) */
@@ -35,45 +35,47 @@ st.markdown("""
         color: white;
         text-align: center;
         box-shadow: 0 15px 30px rgba(0,0,0,0.15);
-        margin-bottom: 30px;
+        margin-bottom: 20px;
     }
     .welcome-card h1 { color: #ffffff !important; font-weight: 800; font-size: 34px; margin-bottom: 5px;}
     .welcome-card p { font-size: 18px; color: #d1d8e0; margin-top: 0;}
 
-    /* Streamlit varsayılan checkbox etiketini gizleme */
+    /* Checkbox'ın etrafındaki gereksiz yazıları gizle */
     div[data-testid="stCheckbox"] label span p { display: none; }
+    div[data-testid="stCheckbox"] { padding-top: 15px; } /* Kutucuğu kartla ortala */
     
-    /* Görev Kartları */
+    /* Görev Kartları (Hayalet kutu sorunu çözüldü, metne entegre edildi) */
     .task-card {
         background: #ffffff;
-        border-radius: 16px;
-        padding: 20px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.04);
-        margin-bottom: 15px;
+        border-radius: 12px;
+        padding: 15px 20px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.04);
         border-left: 6px solid #3498db;
         transition: all 0.3s ease;
+        margin-bottom: 5px;
     }
-    .task-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0,0,0,0.1); }
+    .task-card:hover { transform: translateX(5px); box-shadow: 0 6px 20px rgba(0,0,0,0.08); }
     
     /* Tamamlanmış Görev Kartı */
-    .task-completed { border-left: 6px solid #2ecc71; background: #fbfdfc; opacity: 0.9; }
+    .task-completed { border-left: 6px solid #2ecc71; background: #f9fdfa; opacity: 0.85; }
     
     .task-title { font-size: 18px; font-weight: 700; color: #2c3e50; margin-bottom: 5px; transition: all 0.2s;}
-    .task-time { font-size: 13px; color: #7f8c8d; font-weight: 600; margin-bottom: 8px;}
-    .task-note { background-color: #fff8e1; padding: 12px; border-radius: 8px; font-size: 14px; color: #b78a00; border-left: 4px solid #ffc107; margin-top: 10px;}
+    .task-time { font-size: 13px; color: #7f8c8d; font-weight: 600; margin-bottom: 2px;}
+    .task-note { background-color: #fff8e1; padding: 10px 12px; border-radius: 8px; font-size: 13px; color: #b78a00; border-left: 4px solid #ffc107; margin-top: 10px;}
     
-    /* Modern Buton */
+    /* Modern Toplu Kaydetme Butonu */
     button[kind="primary"] {
         background: linear-gradient(to right, #11998e, #38ef7d) !important;
         color: white !important;
         font-weight: bold !important;
         border: none !important;
         border-radius: 12px !important;
-        padding: 10px !important;
+        padding: 12px !important;
         box-shadow: 0 4px 15px rgba(46, 204, 113, 0.4) !important;
         transition: all 0.3s ease !important;
+        margin-top: 20px !important;
     }
-    button[kind="primary"]:hover { transform: scale(1.02) !important; }
+    button[kind="primary"]:hover { transform: scale(1.02) !important; box-shadow: 0 6px 20px rgba(46, 204, 113, 0.6) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -92,7 +94,7 @@ def main():
             r.raise_for_status()
             ilk_gorev_list = r.json()
         except Exception as e:
-            st.error(f"Veritabanına bağlanılamadı.")
+            st.error("Veritabanına bağlanılamadı.")
             st.stop()
 
     if not ilk_gorev_list:
@@ -110,7 +112,7 @@ def main():
         tum_gorevler_ham = r_tum.json()
         tum_gorevler = [g for g in tum_gorevler_ham if g.get("deadline", "").startswith(tarih_gun)]
     except Exception as e:
-        st.error(f"Görev listesi alınırken bir sorun oluştu. Lütfen sayfayı yenileyin.")
+        st.error("Görev listesi alınırken bir sorun oluştu. Lütfen sayfayı yenileyin.")
         st.stop()
 
     toplam_gorev = len(tum_gorevler)
@@ -137,52 +139,59 @@ def main():
 
     st.write("---")
     st.markdown("### 📋 Yapılacaklar Listen")
+    st.write("") # Biraz boşluk
 
     # Görev Kartları Listeleme
     for g in tum_gorevler:
         task_id = g["id"]
         db_is_tamam = (g.get("durum") == "tamamlandi")
         
-        # Ekrandaki anlık seçimi yakalar (Tıklandığı an görseli değiştirmek için)
+        # Ekrandaki anlık seçimi yakalar
         is_checked = st.session_state.get(task_id, db_is_tamam)
         
-        css_class = "task-card task-completed" if is_checked else "task-card"
+        # Sütunları böl: Solda tık yeri, sağda şık bilgi kartı
+        col1, col2 = st.columns([0.08, 0.92])
         
-        with st.container():
-            st.markdown(f'<div class="{css_class}">', unsafe_allow_html=True)
-            col1, col2 = st.columns([0.08, 0.92])
+        with col1:
+            st.checkbox(" ", value=db_is_tamam, key=task_id)
+        
+        with col2:
+            saat = g["deadline"].split("T")[1][:5] if "T" in g.get("deadline", "") else "Belirtilmedi"
+            yonetici_notu = g.get("notlar", "")
             
-            with col1:
-                st.checkbox(" ", value=db_is_tamam, key=task_id)
-            
-            with col2:
-                # Kupa ve Üst Çizme Efekti
-                if is_checked:
-                    st.markdown(f'<div class="task-title"><s style="color:#95a5a6;">{g["is_tanimi"]}</s> &nbsp;🏆</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown(f'<div class="task-title">{g["is_tanimi"]}</div>', unsafe_allow_html=True)
+            # Seçili ise yeşil onaylı kart, değilse mavi bekleme kartı
+            if is_checked:
+                not_html = f'<div class="task-note">📌 <b>Yönetici Notu:</b> {yonetici_notu}</div>' if yonetici_notu else ''
+                st.markdown(f"""
+                <div class="task-card task-completed">
+                    <div class="task-title"><s style="color:#95a5a6;">{g["is_tanimi"]}</s> &nbsp;🏆</div>
+                    <div class="task-time">⏰ Hedef Saat: {saat}</div>
+                    {not_html}
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                not_html = f'<div class="task-note">📌 <b>Yönetici Notu:</b> {yonetici_notu}</div>' if yonetici_notu else ''
+                st.markdown(f"""
+                <div class="task-card">
+                    <div class="task-title">{g["is_tanimi"]}</div>
+                    <div class="task-time">⏰ Hedef Saat: {saat}</div>
+                    {not_html}
+                </div>
+                """, unsafe_allow_html=True)
                 
-                saat = g["deadline"].split("T")[1][:5] if "T" in g.get("deadline", "") else "Belirtilmedi"
-                st.markdown(f'<div class="task-time">⏰ Hedef Saat: {saat}</div>', unsafe_allow_html=True)
-                
-                yonetici_notu = g.get("notlar", "")
-                if yonetici_notu:
-                    st.markdown(f'<div class="task-note">📌 <b>Yönetici Notu:</b> {yonetici_notu}</div>', unsafe_allow_html=True)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.write("") # Her görev arasına ince bir boşluk
 
     # --- TOPLU KAYDETME BUTONU ---
-    st.write("") 
     if st.button("🚀 Seçili Görevleri Tamamla ve Kaydet", use_container_width=True, type="primary"):
         with st.spinner("Sistem güncelleniyor, Yöneticiye bilgi veriliyor..."):
             for g in tum_gorevler:
                 task_id = g["id"]
                 db_status = g.get("durum")
-                ui_status = st.session_state[task_id]
+                ui_status = st.session_state.get(task_id, False)
                 
                 yeni_durum = "tamamlandi" if ui_status else "bekliyor"
                 
-                # Sadece durumu değişenleri veritabanına yolla
+                # Sadece durumu değişenleri veritabanına yolla (Performans artışı)
                 if db_status != yeni_durum:
                     try:
                         httpx.patch(f"{SUPABASE_URL}?id=eq.{task_id}", headers=HEADERS, json={"durum": yeni_durum})
@@ -190,7 +199,7 @@ def main():
                         pass
             
             st.session_state['goster_tebrik'] = True
-            st.rerun() # Ekranı yenile ve balonları uçur
+            st.rerun() # Ekranı yenile, kupa ve balonları göster!
 
 if __name__ == "__main__":
     main()
