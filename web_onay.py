@@ -1,7 +1,6 @@
 import streamlit as st
 import httpx
 from datetime import datetime
-import time
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(
@@ -81,7 +80,7 @@ def update_task_status(task_id, is_checked):
             json={"durum": yeni_durum}
         )
     except Exception as e:
-        st.error("Bağlantı hatası oluştu.")
+        st.error("Durum güncellenirken bağlantı hatası oluştu.")
 
 # --- ANA MANTIK ---
 def main():
@@ -93,30 +92,35 @@ def main():
         st.markdown('<div class="welcome-card"><h1>Görev Bulunamadı</h1><p>Lütfen yöneticinizin gönderdiği geçerli bir linke tıklayın.</p></div>', unsafe_allow_html=True)
         st.stop()
 
-    # 2. Token'a ait ilk görevi bul (Personeli ve Tarihi öğrenmek için)
-    with st.spinner('Görevleriniz yükleniyor...'):
+    # 2. Token'a ait ilk görevi bul (Güvenli Parametre Kullanımı)
+    with st.spinner('Çalışma masanız hazırlanıyor...'):
         try:
-            r = httpx.get(f"{SUPABASE_URL}?magic_token=eq.{token}", headers=HEADERS)
+            r = httpx.get(SUPABASE_URL, headers=HEADERS, params={"magic_token": f"eq.{token}"})
+            r.raise_for_status()
             ilk_gorev_list = r.json()
-        except:
-            st.error("Sunucuya bağlanılamadı.")
+        except Exception as e:
+            st.error(f"Veritabanına bağlanılamadı. Detay: {e}")
             st.stop()
 
     if not ilk_gorev_list:
-        st.error("Bu link geçersiz veya görev silinmiş.")
+        st.error("Bu link geçersiz veya görev yöneticiniz tarafından silinmiş.")
         st.stop()
 
     ilk_gorev = ilk_gorev_list[0]
     personel = ilk_gorev["personel_ad"]
     tarih_tam = ilk_gorev["deadline"]
-    tarih_gun = tarih_tam.split("T")[0] # Sadece YYYY-MM-DD kısmını al
+    tarih_gun = tarih_tam.split("T")[0] 
 
-    # 3. Aynı Personelin, Aynı Gündeki TÜM görevlerini çek
+    # 3. Aynı Personelin tüm görevlerini çekip Python'da gün bazlı filtrele (Hata çözen kısım!)
     try:
-        r_tum = httpx.get(f"{SUPABASE_URL}?personel_ad=eq.{personel}&deadline=like.{tarih_gun}%", headers=HEADERS)
-        tum_gorevler = r_tum.json()
-    except:
-        st.error("Tüm görevler çekilemedi.")
+        r_tum = httpx.get(SUPABASE_URL, headers=HEADERS, params={"personel_ad": f"eq.{personel}"})
+        r_tum.raise_for_status()
+        tum_gorevler_ham = r_tum.json()
+        
+        # Sadece o güne ait olan görevleri Python ile güvenlice süzüyoruz
+        tum_gorevler = [g for g in tum_gorevler_ham if g.get("deadline", "").startswith(tarih_gun)]
+    except Exception as e:
+        st.error(f"Görev listesi alınırken bir sorun oluştu. Lütfen sayfayı yenileyin.")
         st.stop()
 
     # İstatistikleri Hesapla
@@ -126,7 +130,6 @@ def main():
 
     # 4. ARAYÜZ (GÖRSEL ŞÖLEN)
     
-    # Hoşgeldin Kartı
     tarih_formatli = datetime.strptime(tarih_gun, "%Y-%m-%d").strftime("%d.%m.%Y")
     st.markdown(f"""
         <div class="welcome-card">
@@ -135,25 +138,24 @@ def main():
         </div>
     """, unsafe_allow_html=True)
 
-    # İlerleme Çubuğu
     st.markdown(f"**Günlük İlerleme:** {tamamlanan} / {toplam_gorev} Görev Tamamlandı")
     st.progress(ilerleme)
 
-    if ilerleme == 1.0:
+    if ilerleme == 1.0 and toplam_gorev > 0:
         st.success("🎉 Harika iş çıkardın! Bugünlük tüm görevlerini tamamladın.")
-        st.balloons() # %100 olunca balonlar uçar
+        st.balloons() 
 
     st.write("---")
     st.markdown("### 📋 Yapılacaklar Listen")
 
-    # Görevleri Listele
     for g in tum_gorevler:
         task_id = g["id"]
         is_tamam = (g.get("durum") == "tamamlandi")
-        saat = g["deadline"].split("T")[1][:5]
+        
+        # Saat bilgisi varsa al, yoksa boş bırak
+        saat = g["deadline"].split("T")[1][:5] if "T" in g.get("deadline", "") else "Belirtilmedi"
         yonetici_notu = g.get("notlar", "")
 
-        # Kart Tasarımı
         css_class = "task-card task-completed" if is_tamam else "task-card"
         
         with st.container():
@@ -162,7 +164,6 @@ def main():
             col1, col2 = st.columns([0.1, 0.9])
             
             with col1:
-                # Checkbox durumu değiştiğinde update_task_status fonksiyonunu tetikler
                 st.checkbox(
                     " ", 
                     value=is_tamam, 
@@ -175,7 +176,6 @@ def main():
                 st.markdown(f'<div class="task-title">{g["is_tanimi"]}</div>', unsafe_allow_html=True)
                 st.markdown(f'<div class="task-time">⏰ Hedef Saat: {saat}</div>', unsafe_allow_html=True)
                 
-                # Eğer yönetici masaüstü programından bir not girdiyse, burada şık bir uyarı olarak görünür
                 if yonetici_notu:
                     st.markdown(f'<div class="task-note">📌 <b>Yönetici Notu:</b> {yonetici_notu}</div>', unsafe_allow_html=True)
             
