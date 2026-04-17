@@ -40,29 +40,33 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 def main():
-    # --- CERRAHİ ONARIM: MOBİL HAFIZA VE ST.STOP() MANTIĞI ---
-    # 1. Oturum hafızasını kontrol et
+    # --- KRİTİK ONARIM: ANTİ-CACHE (ÖNBELLEK KIRICI) SİSTEMİ ---
     if "magic_token" not in st.session_state:
         st.session_state.magic_token = None
 
-    # 2. URL'den token yakalamaya çalış (Sadece hafıza boşsa)
-    params = st.query_params
-    if "id" in params:
-        st.session_state.magic_token = params["id"]
+    # URL parametrelerini oku
+    q_params = st.query_params
+    
+    # EĞER URL'DE BİR ID VARSA: Hafızayı zorla güncelle (Safari Önbellek Fix)
+    if "id" in q_params:
+        yeni_id = q_params["id"]
+        # Eğer hafızadaki ID ile URL'deki farklıysa veya hafıza boşsa, URL'dekini mühürle
+        if st.session_state.magic_token != yeni_id:
+            st.session_state.magic_token = yeni_id
 
-    # 3. Kritik Bariyer: Eğer ne URL'de ne hafızada token yoksa durdur ve giriş alanı göster
-    if not st.session_state.magic_token:
+    # Token kontrolü ve st.stop() bariyeri
+    token = st.session_state.magic_token
+    
+    if not token:
         st.markdown("<h2 style='text-align:center; color:#1a73e8;'>TASKLY Workspace</h2>", unsafe_allow_html=True)
-        st.warning("Oturum bilgisi linkten okunamadı.")
-        manual_id = st.text_input("Lütfen size iletilen 8 haneli kodu buraya girin:", placeholder="Örn: a1b2c3d4").strip()
-        if st.button("Giriş Yap", type="primary", use_container_width=True):
+        st.warning("Oturum bilgisi doğrulanamadı.")
+        st.info("Lütfen linkteki 8 haneli kodu aşağıya girin veya linke tekrar tıklayın.")
+        manual_id = st.text_input("Giriş Kodu", placeholder="Örn: a1b2c3d4").strip()
+        if st.button("Sisteme Giriş Yap", type="primary", use_container_width=True):
             if manual_id:
                 st.session_state.magic_token = manual_id
                 st.rerun()
-        st.stop() # İşte o beyaz ekranı engelleyen ve kodu girmeye zorlayan komut.
-
-    # Token artık hafızadan okunuyor (Mobil linki silsede hafıza silinmez)
-    token = st.session_state.magic_token
+        st.stop() # Güvenli durdurma
 
     # --- VERİ ÇEKME ---
     try:
@@ -72,9 +76,10 @@ def main():
         
         user_row = [t for t in data if t.get("magic_token") == token]
         if not user_row: 
-            st.error("Giriş kodu geçersiz.")
-            if st.button("Geri Dön"):
+            st.error("Kod geçersiz veya süresi dolmuş.")
+            if st.button("Oturumu Sıfırla"):
                 st.session_state.magic_token = None
+                st.query_params.clear()
                 st.rerun()
             st.stop()
         
@@ -177,7 +182,7 @@ def main():
                     col_c.caption(f"👤 Sorumlu: {ft['personel_ad']}")
 
     except Exception as e:
-        st.error("Sunucu bağlantısı bekleniyor...")
+        st.error("Bağlantı güncelleniyor, lütfen bekleyin...")
 
 if __name__ == "__main__":
     main()
