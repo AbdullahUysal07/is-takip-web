@@ -1,14 +1,12 @@
 import streamlit as st
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime
 
 # --- SAYFA AYARLARI ---
-# initial_sidebar_state="collapsed" Safari'de yüklenme çökmelerini engellemek için en güvenli yoldur.
 st.set_page_config(
     page_title="FLU DİJİTAL | Workspace", 
     page_icon="✉️", 
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    layout="wide"
 )
 
 # --- TEMA YÖNETİMİ ---
@@ -25,79 +23,46 @@ HEADERS = {
     "Prefer": "return=representation"
 }
 
-# --- GMAIL / MATERIAL DESIGN RENK PALETİ ---
+# --- GÜVENLİ RENK PALETİ ---
 if st.session_state.theme == "Night":
-    T_BG = "#202124"
-    T_CARD = "#303134"
-    T_TEXT = "#ffffff"
-    T_MUTED = "#9aa0a6"
-    T_BORDER = "#5f6368"
-    T_PRIMARY = "#8ab4f8"
-    T_DONE_BG = "rgba(138, 180, 248, 0.08)"
+    bg_color = "#202124"
+    text_color = "#ffffff"
+    card_bg = "#303134"
+    border_color = "#5f6368"
+    accent_color = "#8ab4f8"
 else:
-    T_BG = "#ffffff"
-    T_CARD = "#ffffff"        
-    T_TEXT = "#202124"
-    T_MUTED = "#5f6368"
-    T_BORDER = "#dadce0"
-    T_PRIMARY = "#1a73e8"
-    T_DONE_BG = "#f8f9fa"
+    bg_color = "#ffffff"
+    text_color = "#202124"
+    card_bg = "#ffffff"
+    border_color = "#dadce0"
+    accent_color = "#1a73e8"
 
-# --- GÜVENLİ CSS (SADECE BİZİM KARTLARIMIZI ETKİLER) ---
+# --- %100 GÜVENLİ CSS (SADECE KARTLARI ETKİLER) ---
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
     
-    /* Sadece ana arka planı değiştiriyoruz, Streamlit'in butonlarına dokunmuyoruz */
-    .stApp {{ background-color: {T_BG}; font-family: 'Roboto', sans-serif; }}
+    .stApp {{ background-color: {bg_color}; font-family: 'Roboto', sans-serif; }}
+    .stApp p, .stApp span, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp label {{ color: {text_color} !important; }}
     
-    /* Gizleme işlemleri standart */
-    #MainMenu {{visibility: hidden;}} footer {{visibility: hidden;}} .stDeployButton {{display:none;}}
-
-    /* Kendi Başlık Alanımız */
-    .material-header {{
-        border-bottom: 1px solid {T_BORDER}; padding-bottom: 16px; margin-bottom: 24px; margin-top: 10px;
-    }}
-    .material-header h1 {{ font-size: 26px !important; font-weight: 400; margin: 0; color: {T_TEXT}; }}
-    .material-header p {{ color: {T_MUTED}; font-size: 13px; font-weight: 500; margin-top: 4px; }}
-
-    /* İstatistik Kartları */
-    .stat-card {{
-        background: {T_CARD}; border: 1px solid {T_BORDER}; border-radius: 8px; 
-        padding: 16px; text-align: left; margin-bottom: 15px;
-    }}
-    .stat-val {{ font-size: 28px; font-weight: 400; color: {T_PRIMARY}; line-height: 1.2; }}
-    .stat-label {{ font-size: 12px; color: {T_MUTED}; font-weight: 500; letter-spacing: 0.5px; }}
-
-    /* Görev Kartları */
-    .material-card {{
-        background: {T_CARD}; border: 1px solid {T_BORDER}; border-radius: 8px; 
-        padding: 14px 16px; margin-bottom: 10px;
-        display: flex; flex-direction: column; justify-content: center;
-    }}
-    .material-card-done {{ background: {T_DONE_BG}; border-color: {T_BORDER}; opacity: 0.8; }}
+    /* GMAIL TASARIM KARTLARI */
+    .material-header {{ border-bottom: 1px solid {border_color}; padding-bottom: 15px; margin-bottom: 25px; margin-top: 10px; }}
+    .material-header h1 {{ font-size: 26px !important; margin: 0; color: {text_color}; }}
+    .material-header p {{ opacity: 0.7; font-size: 13px; margin-top: 5px; }}
     
-    .card-top {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }}
-    .card-title {{ font-size: 14px; font-weight: 500; color: {T_TEXT}; }}
-    .card-time {{ font-size: 12px; font-weight: 500; color: {T_PRIMARY}; }}
-    .card-desc {{ font-size: 13px; color: {T_MUTED}; margin-top: 4px; }}
+    .stat-card {{ background: {card_bg}; border: 1px solid {border_color}; border-radius: 8px; padding: 15px; text-align: center; margin-bottom: 10px; }}
+    .stat-val {{ font-size: 26px; font-weight: bold; color: {accent_color}; line-height: 1.2; }}
+    .stat-label {{ font-size: 11px; opacity: 0.7; margin-top: 5px; }}
     
-    .card-label {{ 
-        font-size: 11px; background: transparent; color: {T_MUTED}; 
-        padding: 2px 6px; border-radius: 4px; border: 1px solid {T_BORDER}; display: inline-block; margin-top: 8px;
-    }}
-
-    /* Streamlit Checkbox Renk Fixleri (Gece modu okunabilirliği için) */
-    .stCheckbox label span {{ color: {T_TEXT} !important; }}
+    .material-card {{ background: {card_bg}; border: 1px solid {border_color}; border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; flex-direction: column; }}
+    .card-top {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }}
+    .card-title {{ font-weight: bold; font-size: 14px; color: {text_color}; }}
+    .card-time {{ font-size: 12px; color: {accent_color}; font-weight: bold; }}
+    .card-desc {{ font-size: 12px; opacity: 0.8; margin-top: 5px; }}
     
-    /* Streamlit Sidebar Yazı Renk Fixleri */
-    .stRadio label p {{ color: {T_TEXT} !important; font-weight: 500; }}
-    
-    /* Özel Buton Tasarımı */
+    /* Streamlit Butonlarını Yuvarlak Yapma */
     div.stButton > button:first-child {{
-        background-color: {T_PRIMARY} !important; color: #ffffff !important;
-        font-weight: 500 !important; border-radius: 24px !important; 
-        border: none !important; padding: 10px 24px !important; width: 100%;
+        border-radius: 20px !important; border: 1px solid {accent_color} !important; color: {text_color} !important; background: transparent !important; width: 100%;
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -110,13 +75,13 @@ def main():
 
     # --- VERİ ÇEKME ---
     try:
-        with httpx.Client(timeout=15.0) as client:
+        with httpx.Client(timeout=10.0) as client:
             r = client.get(SUPABASE_URL, headers=HEADERS)
             data = r.json()
         
         user_row = [t for t in data if t.get("magic_token") == token]
         if not user_row: 
-            st.error("Bağlantı geçersiz.")
+            st.error("Link geçersiz veya süresi dolmuş.")
             st.stop()
         
         user_name = user_row[0]["personel_ad"]
@@ -140,9 +105,9 @@ def main():
             st.rerun()
             
         st.write("---")
-        menu = st.radio("MENÜ SEÇİMİ", ["📥 Ana Sayfa", "📝 Görevlerim", "🌐 Şirket Radarı", "🗓️ Gelecek İşler"])
+        menu = st.radio("MENÜ", ["📥 Ana Sayfa", "📝 Görevlerim", "🌐 Şirket Radarı", "🗓️ Gelecek İşler"])
         st.write("---")
-        st.caption(f"Aktif Kullanıcı: {user_name}")
+        st.caption(f"👤 Aktif Kullanıcı: {user_name}")
 
     # --- DASHBOARD ---
     if menu == "📥 Ana Sayfa":
@@ -156,13 +121,13 @@ def main():
         c1, c2, c3, c4 = st.columns(4)
         with c1: st.markdown(f'<div class="stat-card"><div class="stat-val">{my_total}</div><div class="stat-label">SANA ATANAN İŞ</div></div>', unsafe_allow_html=True)
         with c2: st.markdown(f'<div class="stat-card"><div class="stat-val">{my_done}</div><div class="stat-label">TAMAMLANAN</div></div>', unsafe_allow_html=True)
-        with c3: st.markdown(f'<div class="stat-card"><div class="stat-val">{team_done}</div><div class="stat-label">ŞİRKET GENELİ BİTEN</div></div>', unsafe_allow_html=True)
+        with c3: st.markdown(f'<div class="stat-card"><div class="stat-val">{team_done}</div><div class="stat-label">ŞİRKET BİTEN</div></div>', unsafe_allow_html=True)
         with c4:
             perf = int((my_done/my_total)*100) if my_total > 0 else 100
             st.markdown(f'<div class="stat-card"><div class="stat-val">%{perf}</div><div class="stat-label">VERİMLİLİK</div></div>', unsafe_allow_html=True)
 
         st.write("")
-        st.markdown(f"<span style='color:{T_MUTED}; font-size:14px; font-weight:500;'>Genel İlerleme Durumu</span>", unsafe_allow_html=True)
+        st.markdown(f"<span style='font-size:14px; font-weight:500;'>Şirket Geneli İlerleme Durumu</span>", unsafe_allow_html=True)
         team_total = len(team_today)
         team_perc = (team_done / team_total) if team_total > 0 else 0
         st.progress(team_perc)
@@ -175,7 +140,7 @@ def main():
         done = [t for t in my_tasks if t.get("durum") == "tamamlandi"]
         
         with col1:
-            st.markdown(f"<h5 style='color:{T_TEXT};'>⏳ Bekleyenler</h5>", unsafe_allow_html=True)
+            st.markdown("##### ⏳ Bekleyenler")
             for t in todo:
                 saat = t.get("deadline","").split("T")[1][:5]
                 st.markdown(f"""
@@ -187,15 +152,16 @@ def main():
                     {f'<div class="card-desc">{t["notlar"]}</div>' if t.get("notlar") else ''}
                 </div>
                 """, unsafe_allow_html=True)
-                st.checkbox("Tamamlandı", key=t['id'])
+                st.checkbox("Tamamlandı olarak işaretle", key=t['id'])
+                
         with col2:
-            st.markdown(f"<h5 style='color:{T_TEXT};'>✔️ Bitenler</h5>", unsafe_allow_html=True)
+            st.markdown("##### ✔️ Bitenler")
             for t in done:
                 st.markdown(f"""
-                <div class="material-card material-card-done">
+                <div class="material-card" style="opacity: 0.6;">
                     <div class="card-top">
-                        <div class="card-title" style="text-decoration: line-through; color: {T_MUTED};">{t["is_tanimi"]}</div>
-                        <div class="card-time" style="color: {T_MUTED};">Tamamlandı</div>
+                        <div class="card-title" style="text-decoration: line-through;">{t["is_tanimi"]}</div>
+                        <div class="card-time">Tamamlandı</div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -212,20 +178,20 @@ def main():
         st.markdown(f'<div class="material-header"><h1>Şirket Radarı</h1><p>Ekipteki diğer çalışma arkadaşların neler yapıyor?</p></div>', unsafe_allow_html=True)
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown(f"<h5 style='color:{T_TEXT};'>✔️ Tamamlanan İşler</h5>", unsafe_allow_html=True)
+            st.markdown("##### ✔️ Tamamlanan İşler")
             for b in [t for t in team_today if t.get("durum") == "tamamlandi"]:
                 saat = b.get("deadline","").split("T")[1][:5]
                 st.markdown(f"""
-                <div class="material-card material-card-done">
+                <div class="material-card" style="opacity: 0.6;">
                     <div class="card-top">
                         <div class="card-title">{b["is_tanimi"]}</div>
-                        <div class="card-time" style="color: {T_MUTED};">{saat}</div>
+                        <div class="card-time">{saat}</div>
                     </div>
-                    <div><span class="card-label">👤 {b["personel_ad"]}</span></div>
+                    <div class="card-desc">👤 {b["personel_ad"]}</div>
                 </div>
                 """, unsafe_allow_html=True)
         with c2:
-            st.markdown(f"<h5 style='color:{T_TEXT};'>⏳ Üzerinde Çalışılanlar</h5>", unsafe_allow_html=True)
+            st.markdown("##### ⏳ Üzerinde Çalışılanlar")
             for d in [t for t in team_today if t.get("durum") != "tamamlandi"]:
                 saat = d.get("deadline","").split("T")[1][:5]
                 st.markdown(f"""
@@ -234,7 +200,7 @@ def main():
                         <div class="card-title">{d["is_tanimi"]}</div>
                         <div class="card-time">{saat}</div>
                     </div>
-                    <div><span class="card-label">👤 {d["personel_ad"]}</span></div>
+                    <div class="card-desc">👤 {d["personel_ad"]}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -253,7 +219,7 @@ def main():
                     <div class="card-title">{ft["is_tanimi"]}</div>
                     <div class="card-time">{dv} - {saat}</div>
                 </div>
-                <div><span class="card-label">👤 {ft["personel_ad"]}</span></div>
+                <div class="card-desc">👤 {ft["personel_ad"]}</div>
             </div>
             """, unsafe_allow_html=True)
 
