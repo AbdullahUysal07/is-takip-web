@@ -2,7 +2,7 @@ import streamlit as st
 import httpx
 from datetime import datetime
 
-# --- SAYFA AYARLARI (En güvenli haliyle bırakıldı) ---
+# --- SAYFA AYARLARI ---
 st.set_page_config(
     page_title="FLU DİJİTAL | Workspace", 
     page_icon="✉️", 
@@ -19,26 +19,15 @@ HEADERS = {
     "Prefer": "return=representation"
 }
 
-# --- TEMA VE RENK AYARLARI (Sadece Kartlar İçin) ---
-if "theme" not in st.session_state:
-    st.session_state.theme = "Day"
+# --- SABİT MATERIAL TASARIM RENKLERİ (GMAIL LIGHT) ---
+T_CARD = "#ffffff"        
+T_TEXT = "#202124"
+T_MUTED = "#5f6368"
+T_BORDER = "#dadce0"
+T_PRIMARY = "#1a73e8"
+T_DONE_BG = "#f8f9fa"
 
-if st.session_state.theme == "Night":
-    T_CARD = "#303134"
-    T_TEXT = "#ffffff"
-    T_MUTED = "#9aa0a6"
-    T_BORDER = "#5f6368"
-    T_PRIMARY = "#8ab4f8"
-    T_DONE_BG = "rgba(138, 180, 248, 0.08)"
-else:
-    T_CARD = "#ffffff"        
-    T_TEXT = "#202124"
-    T_MUTED = "#5f6368"
-    T_BORDER = "#dadce0"
-    T_PRIMARY = "#1a73e8"
-    T_DONE_BG = "#f8f9fa"
-
-# --- GÜVENLİ CSS (Sadece bizim ürettiğimiz kartları etkiler) ---
+# --- GÜVENLİ CSS (Sadece kartları etkiler, mobil çökmesini engeller) ---
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
@@ -65,7 +54,7 @@ st.markdown(f"""
     .card-desc {{ font-size: 13px; color: {T_MUTED}; margin-top: 4px; }}
     .card-label {{ font-size: 11px; color: {T_MUTED}; margin-top: 8px; }}
     
-    /* Sadece kendi başlıklarımızı stillendiriyoruz */
+    /* Başlıklar */
     .custom-h {{ color: {T_TEXT}; font-family: 'Roboto', sans-serif; font-weight: 500; }}
 </style>
 """, unsafe_allow_html=True)
@@ -103,11 +92,6 @@ def main():
     # --- YAN MENÜ ---
     with st.sidebar:
         st.title("FLU DİJİTAL")
-        theme_icon = "🌙 Kartları Gece Modu Yap" if st.session_state.theme == "Day" else "☀️ Kartları Gündüz Modu Yap"
-        if st.button(theme_icon):
-            st.session_state.theme = "Night" if st.session_state.theme == "Day" else "Day"
-            st.rerun()
-            
         st.write("---")
         menu = st.radio("MENÜ", ["📥 Ana Sayfa", "📝 Görevlerim", "🌐 Şirket Radarı", "🗓️ Gelecek İşler"])
         st.write("---")
