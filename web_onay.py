@@ -27,7 +27,7 @@ T_BORDER = "#dadce0"
 T_PRIMARY = "#1a73e8"
 T_DONE_BG = "#f8f9fa"
 
-# --- GÜVENLİ CSS (Sadece kartları etkiler, mobil çökmesini engeller) ---
+# --- GÜVENLİ CSS ---
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
@@ -40,22 +40,25 @@ st.markdown(f"""
     .stat-val {{ font-size: 28px; font-weight: 400; color: {T_PRIMARY}; line-height: 1.2; }}
     .stat-label {{ font-size: 12px; color: {T_MUTED}; font-weight: 500; letter-spacing: 0.5px; }}
 
-    /* Görev Kartları */
-    .material-card {{
-        background: {T_CARD}; border: 1px solid {T_BORDER}; border-radius: 8px; 
-        padding: 14px 16px; margin-bottom: 10px; font-family: 'Roboto', sans-serif;
-        display: flex; flex-direction: column; justify-content: center;
-    }}
-    .material-card-done {{ background: {T_DONE_BG}; border-color: {T_BORDER}; opacity: 0.8; }}
-    
-    .card-top {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }}
-    .card-title {{ font-size: 14px; font-weight: 500; color: {T_TEXT}; }}
-    .card-time {{ font-size: 12px; font-weight: 500; color: {T_PRIMARY}; }}
-    .card-desc {{ font-size: 13px; color: {T_MUTED}; margin-top: 4px; }}
-    .card-label {{ font-size: 11px; color: {T_MUTED}; margin-top: 8px; }}
-    
     /* Başlıklar */
-    .custom-h {{ color: {T_TEXT}; font-family: 'Roboto', sans-serif; font-weight: 500; }}
+    .custom-h {{ color: {T_TEXT}; font-family: 'Roboto', sans-serif; font-weight: 500; margin-bottom: 0px; padding-bottom: 0px; }}
+    
+    /* Vurgulu Kaydet Butonu (Primary Button) */
+    button[kind="primary"] {{
+        background-color: {T_PRIMARY} !important;
+        color: white !important;
+        font-weight: 700 !important;
+        padding: 14px 24px !important;
+        border-radius: 8px !important;
+        border: none !important;
+        font-size: 16px !important;
+        box-shadow: 0 2px 6px rgba(26, 115, 232, 0.3) !important;
+        transition: all 0.2s ease;
+    }}
+    button[kind="primary"]:hover {{
+        background-color: #1557b0 !important;
+        box-shadow: 0 4px 10px rgba(26, 115, 232, 0.4) !important;
+    }}
 </style>
 """, unsafe_allow_html=True)
 
@@ -101,7 +104,7 @@ def main():
     if menu == "📥 Ana Sayfa":
         st.markdown(f"<h2 class='custom-h'>Hoş Geldin, {user_name}</h2>", unsafe_allow_html=True)
         st.caption(f"{datetime.now().strftime('%d.%m.%Y')} • İşte çalışma masanın güncel özeti.")
-        st.write("")
+        st.write("---")
 
         c1, c2, c3, c4 = st.columns(4)
         with c1: st.markdown(f'<div class="stat-card"><div class="stat-val">{my_total}</div><div class="stat-label">SANA ATANAN İŞ</div></div>', unsafe_allow_html=True)
@@ -121,6 +124,7 @@ def main():
     elif menu == "📝 Görevlerim":
         st.markdown("<h3 class='custom-h'>Görevlerin</h3>", unsafe_allow_html=True)
         st.caption("Bugün sana atanmış işler listesi.")
+        st.write("")
         
         col1, col2 = st.columns(2)
         todo = [t for t in my_tasks if t.get("durum") != "tamamlandi"]
@@ -130,31 +134,32 @@ def main():
             st.write("⏳ Bekleyenler")
             for t in todo:
                 saat = t.get("deadline","").split("T")[1][:5]
-                st.markdown(f"""
-                <div class="material-card">
-                    <div class="card-top">
-                        <div class="card-title">{t["is_tanimi"]}</div>
-                        <div class="card-time">{saat}</div>
+                # Kutu içine almak için native Streamlit container kullanıyoruz
+                with st.container(border=True):
+                    st.markdown(f"""
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <span style="font-size: 14px; font-weight: 500; color: {T_TEXT};">{t["is_tanimi"]}</span>
+                        <span style="font-size: 12px; font-weight: 500; color: {T_PRIMARY};">{saat}</span>
                     </div>
-                    {f'<div class="card-desc">{t["notlar"]}</div>' if t.get("notlar") else ''}
-                </div>
-                """, unsafe_allow_html=True)
-                st.checkbox("Tamamlandı", key=t['id'])
+                    {f'<div style="font-size: 13px; color: {T_MUTED}; margin-bottom: 12px;"><b>Yönetici Notu:</b> {t["notlar"]}</div>' if t.get("notlar") else ''}
+                    """, unsafe_allow_html=True)
+                    # Checkbox artık bu çerçevenin tam içinde!
+                    st.checkbox("Tamamlandı", key=t['id'])
                 
         with col2:
             st.write("✔️ Bitenler")
             for t in done:
-                st.markdown(f"""
-                <div class="material-card material-card-done">
-                    <div class="card-top">
-                        <div class="card-title" style="text-decoration: line-through; color: {T_MUTED};">{t["is_tanimi"]}</div>
-                        <div class="card-time" style="color: {T_MUTED};">Tamamlandı</div>
+                with st.container(border=True):
+                    st.markdown(f"""
+                    <div style="display: flex; justify-content: space-between; align-items: center; opacity: 0.6;">
+                        <span style="font-size: 14px; font-weight: 500; color: {T_MUTED}; text-decoration: line-through;">{t["is_tanimi"]}</span>
+                        <span style="font-size: 12px; font-weight: 500; color: {T_MUTED};">Tamamlandı</span>
                     </div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
         
         st.write("---")
-        if st.button("🚀 Değişiklikleri Kaydet", use_container_width=True):
+        # type="primary" parametresi butonu vurgulu hale getirir
+        if st.button("🚀 Değişiklikleri Kaydet", type="primary", use_container_width=True):
             for t in my_tasks:
                 ns = "tamamlandi" if st.session_state.get(t['id']) else "bekliyor"
                 if t['durum'] != ns: httpx.patch(f"{SUPABASE_URL}?id=eq.{t['id']}", headers=HEADERS, json={"durum": ns})
@@ -164,39 +169,44 @@ def main():
     elif menu == "🌐 Şirket Radarı":
         st.markdown("<h3 class='custom-h'>Şirket Radarı</h3>", unsafe_allow_html=True)
         st.caption("Ekipteki diğer çalışma arkadaşların neler yapıyor?")
+        st.write("")
         
         c1, c2 = st.columns(2)
         with c1:
             st.write("✔️ Tamamlanan İşler")
             for b in [t for t in team_today if t.get("durum") == "tamamlandi"]:
                 saat = b.get("deadline","").split("T")[1][:5]
-                st.markdown(f"""
-                <div class="material-card material-card-done">
-                    <div class="card-top">
-                        <div class="card-title">{b["is_tanimi"]}</div>
-                        <div class="card-time" style="color: {T_MUTED};">{saat}</div>
+                with st.container(border=True):
+                    st.markdown(f"""
+                    <div style="opacity: 0.7;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <span style="font-size: 14px; font-weight: 500; color: {T_TEXT};">{b["is_tanimi"]}</span>
+                            <span style="font-size: 12px; font-weight: 500; color: {T_MUTED};">{saat}</span>
+                        </div>
+                        <div style="font-size: 11px; color: {T_MUTED};">👤 {b["personel_ad"]}</div>
                     </div>
-                    <div class="card-label">👤 {b["personel_ad"]}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
+                    
         with c2:
             st.write("⏳ Üzerinde Çalışılanlar")
             for d in [t for t in team_today if t.get("durum") != "tamamlandi"]:
                 saat = d.get("deadline","").split("T")[1][:5]
-                st.markdown(f"""
-                <div class="material-card">
-                    <div class="card-top">
-                        <div class="card-title">{d["is_tanimi"]}</div>
-                        <div class="card-time">{saat}</div>
+                with st.container(border=True):
+                    st.markdown(f"""
+                    <div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                            <span style="font-size: 14px; font-weight: 500; color: {T_TEXT};">{d["is_tanimi"]}</span>
+                            <span style="font-size: 12px; font-weight: 500; color: {T_PRIMARY};">{saat}</span>
+                        </div>
+                        <div style="font-size: 11px; color: {T_MUTED};">👤 {d["personel_ad"]}</div>
                     </div>
-                    <div class="card-label">👤 {d["personel_ad"]}</div>
-                </div>
-                """, unsafe_allow_html=True)
+                    """, unsafe_allow_html=True)
 
     # --- GELECEK İŞLER ---
     elif menu == "🗓️ Gelecek İşler":
         st.markdown("<h3 class='custom-h'>Gelecek Planları</h3>", unsafe_allow_html=True)
         st.caption("Önümüzdeki günler için tanımlanan iş listesi.")
+        st.write("")
         
         future_tasks = [t for t in data if t.get("deadline", "").split("T")[0] > today_str]
         future_tasks.sort(key=lambda x: x.get("deadline", ""))
@@ -204,15 +214,16 @@ def main():
         for ft in future_tasks:
             dv = datetime.strptime(ft['deadline'].split('T')[0], '%Y-%m-%d').strftime('%d.%m.%Y')
             saat = ft.get("deadline", "").split("T")[1][:5]
-            st.markdown(f"""
-            <div class="material-card">
-                <div class="card-top">
-                    <div class="card-title">{ft["is_tanimi"]}</div>
-                    <div class="card-time">{dv} - {saat}</div>
+            with st.container(border=True):
+                st.markdown(f"""
+                <div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 14px; font-weight: 500; color: {T_TEXT};">{ft["is_tanimi"]}</span>
+                        <span style="font-size: 12px; font-weight: 500; color: {T_PRIMARY};">{dv} - {saat}</span>
+                    </div>
+                    <div style="font-size: 11px; color: {T_MUTED};">👤 {ft["personel_ad"]}</div>
                 </div>
-                <div class="card-label">👤 {ft["personel_ad"]}</div>
-            </div>
-            """, unsafe_allow_html=True)
+                """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
