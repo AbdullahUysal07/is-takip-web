@@ -40,39 +40,48 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 def main():
-    # --- MOBİL FIX: TOKEN KONTROLÜ ---
-    # Bazı mobil tarayıcılar URL parametresini sildiği için manuel giriş imkanı tanıyoruz.
-    token = st.query_params.get("id")
-    
-    if not token:
+    # --- ONARIM: MOBİL OTURUM HAFIZASI (SESSION STATE) ---
+    if "magic_token" not in st.session_state:
+        st.session_state.magic_token = None
+
+    # URL'den ID'yi yakala (Sadece ilk girişte veya hafıza boşsa)
+    q_params = st.query_params
+    if "id" in q_params:
+        st.session_state.magic_token = q_params["id"]
+
+    # Eğer hala token yoksa (Link bozuksa veya mobil parametreyi sildiyse)
+    if not st.session_state.magic_token:
         st.markdown("<h2 style='text-align:center; color:#1a73e8;'>TASKLY Workspace</h2>", unsafe_allow_html=True)
-        st.warning("Mobil tarayıcınız oturum kimliğini linkten okuyamadı.")
-        st.info("Lütfen size iletilen linkteki 8 haneli kodu (id'den sonraki kısım) aşağıya girin.")
-        manual_token = st.text_input("Giriş Kodu", placeholder="Örn: a1b2c3d4").strip()
-        if st.button("Sisteme Giriş Yap", type="primary", use_container_width=True):
-            if manual_token:
-                st.query_params["id"] = manual_token
+        st.warning("Oturum bilgisi linkten okunamadı.")
+        m_token = st.text_input("Size iletilen 8 haneli kodu girin:", placeholder="Örn: a1b2c3d4").strip()
+        if st.button("Giriş Yap", type="primary", use_container_width=True):
+            if m_token:
+                st.session_state.magic_token = m_token
                 st.rerun()
-        st.stop() # Kod girilene kadar alt tarafı yükleyip hata vermesini engelliyoruz.
+        st.stop()
+
+    # Artık 'token' verisini URL'den değil, güvenli hafızadan alıyoruz.
+    token = st.session_state.magic_token
 
     # --- VERİ ÇEKME ---
     try:
-        with httpx.Client(timeout=15.0) as client:
+        # Mobil şebeke dalgalanmaları için timeout 20 saniyeye çıkarıldı (Hız için kritik)
+        with httpx.Client(timeout=20.0) as client:
             r = client.get(SUPABASE_URL, headers=HEADERS)
             data = r.json()
         
         user_row = [t for t in data if t.get("magic_token") == token]
         if not user_row: 
-            st.error("Giriş kodu geçersiz. Lütfen linki kontrol edin.")
-            if st.button("Kodu Tekrar Gir"):
-                st.query_params.clear()
+            st.error("Kod geçersiz. Lütfen linki veya kodu kontrol edin.")
+            if st.button("Sıfırla ve Tekrar Dene"):
+                st.session_state.magic_token = None
                 st.rerun()
             st.stop()
         
         user_name = user_row[0]["personel_ad"]
         today_str = datetime.now().strftime("%Y-%m-%d")
 
-        # Filtrelemeler
+        # Veri filtreleme
         my_tasks = [t for t in data if t.get("personel_ad") == user_name and t.get("deadline", "").startswith(today_str)]
         my_done = sum(1 for t in my_tasks if t.get("durum") == "tamamlandi")
         my_total = len(my_tasks)
@@ -91,23 +100,20 @@ def main():
         if menu == "📊 Dashboard":
             st.markdown(f"## Hoş Geldin, {user_name.split()[0]} 👋")
             c1, c2, c3, c4 = st.columns(4)
-            
             with c1:
                 st.markdown(f'<div class="stat-card"><div class="stat-label">İşlerin</div><div class="stat-val">{my_total}</div></div>', unsafe_allow_html=True)
                 if st.button("📂 İşlerime Git", use_container_width=True):
                     st.session_state.nav_menu = "📝 Görevlerim"
                     st.rerun()
-                    
             with c2: st.markdown(f'<div class="stat-card"><div class="stat-label">Biten</div><div class="stat-val">{my_done}</div></div>', unsafe_allow_html=True)
             with c3: st.markdown(f'<div class="stat-card"><div class="stat-label">Ekip</div><div class="stat-val">{team_done}</div></div>', unsafe_allow_html=True)
             with c4:
                 perf = int((my_done/my_total)*100) if my_total > 0 else 100
                 st.markdown(f'<div class="stat-card"><div class="stat-label">Verim</div><div class="stat-val">%{perf}</div></div>', unsafe_allow_html=True)
-            
             st.write("---")
             st.progress((team_done / len(team_today)) if len(team_today) > 0 else 0)
 
-        # --- GÖREVLERİM ---
+        # --- 2. GÖREVLERİM ---
         elif menu == "📝 Görevlerim":
             st.markdown("## Günlük Görevlerin")
             col1, col2 = st.columns(2)
@@ -134,50 +140,35 @@ def main():
                     if t['durum'] != ns: httpx.patch(f"{SUPABASE_URL}?id=eq.{t['id']}", headers=HEADERS, json={"durum": ns})
                 st.rerun()
 
-        # --- 2. ŞİRKET RADARI ---
+        # --- 3. ŞİRKET RADARI ---
         elif menu == "🌐 Şirket Radarı":
             st.markdown("## Şirket Radarı")
-            st.caption("Ekip arkadaşlarının bugünkü canlı iş akışı.")
-            
             for b in team_today:
                 with st.container(border=True):
-                    c_info, c_status = st.columns([4, 1])
-                    t_saat = b.get('deadline', '').replace('T', ' | ')
-                    d_metin = "✅ Tamamlandı" if b['durum'] == 'tamamlandi' else "⏳ Çalışılıyor"
-                    d_renk = "green" if b['durum'] == 'tamamlandi' else "orange"
-                    
-                    c_info.markdown(f"**{b['personel_ad']}**")
-                    c_info.write(f"📄 {b['is_tanimi']}")
-                    c_info.caption(f"📅 {t_saat}")
-                    c_status.markdown(f"<p style='color:{d_renk}; font-weight:bold; font-size:11px;'>{d_metin}</p>", unsafe_allow_html=True)
+                    c_i, c_s = st.columns([4, 1])
+                    t_s = b.get('deadline', '').replace('T', ' | ')
+                    d_m = "✅ Bitti" if b['durum'] == 'tamamlandi' else "⏳ Devam"
+                    d_r = "green" if b['durum'] == 'tamamlandi' else "orange"
+                    c_i.markdown(f"**{b['personel_ad']}**")
+                    c_i.write(f"📄 {b['is_tanimi']}")
+                    c_i.caption(f"📅 {t_s}")
+                    c_s.markdown(f"<p style='color:{d_r}; font-weight:bold; font-size:11px;'>{d_m}</p>", unsafe_allow_html=True)
 
-        # --- 3. GELECEK PLANLARIM (Global Zaman Çizelgesi) ---
+        # --- 4. GELECEK PLANLARIM ---
         elif menu == "🗓️ Gelecek Planlarım":
             st.markdown("## Şirket Gelecek Ajandası")
-            st.caption("Önümüzdeki günlerdeki tüm şirket iş akışı.")
-            
             f_all = [t for t in data if t.get("deadline", "").split("T")[0] > today_str]
             f_all.sort(key=lambda x: x.get("deadline", ""))
-            
-            if not f_all:
-                st.info("İleri tarihli bir şirket görevi bulunmuyor.")
-            else:
-                for ft in f_all:
-                    with st.container(border=True):
-                        col_d, col_c = st.columns([1, 4])
-                        d_obj = datetime.strptime(ft['deadline'][:10], "%Y-%m-%d")
-                        col_d.markdown(f"""
-                            <div style="background:#f1f3f4; border-radius:8px; padding:10px; text-align:center; border-left:5px solid {T_PRIMARY};">
-                                <div style="font-size:10px; color:{T_MUTED};">{d_obj.strftime('%b').upper()}</div>
-                                <div style="font-size:20px; font-weight:bold; color:{T_PRIMARY};">{d_obj.day}</div>
-                                <div style="font-size:10px; color:{T_TEXT};">{ft['deadline'][11:16]}</div>
-                            </div>
-                        """, unsafe_allow_html=True)
-                        col_c.markdown(f"**{ft['is_tanimi']}**")
-                        col_c.caption(f"👤 Sorumlu: {ft['personel_ad']}")
+            for ft in f_all:
+                with st.container(border=True):
+                    c_d, c_c = st.columns([1, 4])
+                    d_o = datetime.strptime(ft['deadline'][:10], "%Y-%m-%d")
+                    c_d.markdown(f"<div style='text-align:center; background:#f1f3f4; padding:5px; border-radius:5px;'><b>{d_o.day}</b><br><small>{d_o.strftime('%b')}</small></div>", unsafe_allow_html=True)
+                    c_c.markdown(f"**{ft['is_tanimi']}**")
+                    c_c.caption(f"👤 {ft['personel_ad']} | ⏰ {ft['deadline'][11:16]}")
 
     except Exception as e:
-        st.error(f"Bağlantı Hatası: {e}")
+        st.error(f"Veri bağlantısı kurulamadı. Lütfen sayfayı yenileyin.")
 
 if __name__ == "__main__":
     main()
