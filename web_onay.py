@@ -134,7 +134,9 @@ def main():
             st.write("⏳ Bekleyenler")
             for t in todo:
                 saat = t.get("deadline","").split("T")[1][:5]
-                # Kutu içine almak için native Streamlit container kullanıyoruz
+                # Dosya linki varsa şık bir buton oluşturur
+                file_link = f'<div style="margin-top: 8px; margin-bottom: 8px;"><a href="{t["dosya_url"]}" target="_blank" style="text-decoration: none; color: {T_PRIMARY}; font-size: 12px; font-weight: bold; background: #e8f0fe; padding: 4px 8px; border-radius: 4px; display: inline-block;">📎 Eki İndir / Görüntüle</a></div>' if t.get("dosya_url") else ''
+                
                 with st.container(border=True):
                     st.markdown(f"""
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -142,23 +144,24 @@ def main():
                         <span style="font-size: 12px; font-weight: 500; color: {T_PRIMARY};">{saat}</span>
                     </div>
                     {f'<div style="font-size: 13px; color: {T_MUTED}; margin-bottom: 12px;"><b>Yönetici Notu:</b> {t["notlar"]}</div>' if t.get("notlar") else ''}
+                    {file_link}
                     """, unsafe_allow_html=True)
-                    # Checkbox artık bu çerçevenin tam içinde!
                     st.checkbox("Tamamlandı", key=t['id'])
                 
         with col2:
             st.write("✔️ Bitenler")
             for t in done:
+                file_link = f'<div style="margin-top: 8px;"><a href="{t["dosya_url"]}" target="_blank" style="text-decoration: none; color: {T_MUTED}; font-size: 12px; font-weight: bold; background: #f1f3f4; padding: 4px 8px; border-radius: 4px; display: inline-block;">📎 Eki Aç</a></div>' if t.get("dosya_url") else ''
                 with st.container(border=True):
                     st.markdown(f"""
                     <div style="display: flex; justify-content: space-between; align-items: center; opacity: 0.6;">
                         <span style="font-size: 14px; font-weight: 500; color: {T_MUTED}; text-decoration: line-through;">{t["is_tanimi"]}</span>
                         <span style="font-size: 12px; font-weight: 500; color: {T_MUTED};">Tamamlandı</span>
                     </div>
+                    {file_link}
                     """, unsafe_allow_html=True)
         
         st.write("---")
-        # type="primary" parametresi butonu vurgulu hale getirir
         if st.button("🚀 Değişiklikleri Kaydet", type="primary", use_container_width=True):
             for t in my_tasks:
                 ns = "tamamlandi" if st.session_state.get(t['id']) else "bekliyor"
@@ -176,6 +179,7 @@ def main():
             st.write("✔️ Tamamlanan İşler")
             for b in [t for t in team_today if t.get("durum") == "tamamlandi"]:
                 saat = b.get("deadline","").split("T")[1][:5]
+                file_link = f'<div style="margin-top: 8px;"><a href="{b["dosya_url"]}" target="_blank" style="text-decoration: none; color: {T_PRIMARY}; font-size: 11px; font-weight: bold; background: #e8f0fe; padding: 4px 8px; border-radius: 4px; display: inline-block;">📎 Ek</a></div>' if b.get("dosya_url") else ''
                 with st.container(border=True):
                     st.markdown(f"""
                     <div style="opacity: 0.7;">
@@ -184,6 +188,7 @@ def main():
                             <span style="font-size: 12px; font-weight: 500; color: {T_MUTED};">{saat}</span>
                         </div>
                         <div style="font-size: 11px; color: {T_MUTED};">👤 {b["personel_ad"]}</div>
+                        {file_link}
                     </div>
                     """, unsafe_allow_html=True)
                     
@@ -191,6 +196,7 @@ def main():
             st.write("⏳ Üzerinde Çalışılanlar")
             for d in [t for t in team_today if t.get("durum") != "tamamlandi"]:
                 saat = d.get("deadline","").split("T")[1][:5]
+                file_link = f'<div style="margin-top: 8px;"><a href="{d["dosya_url"]}" target="_blank" style="text-decoration: none; color: {T_PRIMARY}; font-size: 11px; font-weight: bold; background: #e8f0fe; padding: 4px 8px; border-radius: 4px; display: inline-block;">📎 Ek</a></div>' if d.get("dosya_url") else ''
                 with st.container(border=True):
                     st.markdown(f"""
                     <div>
@@ -199,6 +205,7 @@ def main():
                             <span style="font-size: 12px; font-weight: 500; color: {T_PRIMARY};">{saat}</span>
                         </div>
                         <div style="font-size: 11px; color: {T_MUTED};">👤 {d["personel_ad"]}</div>
+                        {file_link}
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -214,6 +221,7 @@ def main():
         for ft in future_tasks:
             dv = datetime.strptime(ft['deadline'].split('T')[0], '%Y-%m-%d').strftime('%d.%m.%Y')
             saat = ft.get("deadline", "").split("T")[1][:5]
+            file_link = f'<div style="margin-top: 8px;"><a href="{ft["dosya_url"]}" target="_blank" style="text-decoration: none; color: {T_PRIMARY}; font-size: 11px; font-weight: bold; background: #e8f0fe; padding: 4px 8px; border-radius: 4px; display: inline-block;">📎 Ek</a></div>' if ft.get("dosya_url") else ''
             with st.container(border=True):
                 st.markdown(f"""
                 <div>
@@ -222,6 +230,7 @@ def main():
                         <span style="font-size: 12px; font-weight: 500; color: {T_PRIMARY};">{dv} - {saat}</span>
                     </div>
                     <div style="font-size: 11px; color: {T_MUTED};">👤 {ft["personel_ad"]}</div>
+                    {file_link}
                 </div>
                 """, unsafe_allow_html=True)
 
