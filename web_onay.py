@@ -35,45 +35,41 @@ st.markdown(f"""
     .stat-card {{ background: {T_CARD}; border: 1px solid {T_BORDER}; border-radius: 12px; padding: 20px; text-align: left; }}
     .stat-val {{ font-size: 32px; font-weight: 700; color: {T_PRIMARY}; }}
     .stat-label {{ font-size: 13px; color: {T_MUTED}; font-weight: 600; text-transform: uppercase; }}
-    .stButton > button {{ border-radius: 20px !important; font-size: 12px !important; }}
 </style>
 """, unsafe_allow_html=True)
 
 def main():
-    # --- ONARIM: MOBİL OTURUM HAFIZASI (SESSION STATE) ---
+    # --- KRİTİK ONARIM: BELİRTTİĞİN ÇÖZÜMÜN ENTEGRASYONU ---
+    # 1. Hafızada kod var mı bak?
     if "magic_token" not in st.session_state:
         st.session_state.magic_token = None
 
-    # URL'den ID'yi yakala (Sadece ilk girişte veya hafıza boşsa)
+    # 2. URL'den kodu yakala
     q_params = st.query_params
     if "id" in q_params:
         st.session_state.magic_token = q_params["id"]
 
-    # Eğer hala token yoksa (Link bozuksa veya mobil parametreyi sildiyse)
-    if not st.session_state.magic_token:
-        st.markdown("<h2 style='text-align:center; color:#1a73e8;'>TASKLY Workspace</h2>", unsafe_allow_html=True)
-        st.warning("Oturum bilgisi linkten okunamadı.")
-        m_token = st.text_input("Size iletilen 8 haneli kodu girin:", placeholder="Örn: a1b2c3d4").strip()
-        if st.button("Giriş Yap", type="primary", use_container_width=True):
-            if m_token:
-                st.session_state.magic_token = m_token
-                st.rerun()
-        st.stop()
-
-    # Artık 'token' verisini URL'den değil, güvenli hafızadan alıyoruz.
+    # 3. SENİN ÇÖZÜMÜN (Tam buraya ekledik):
     token = st.session_state.magic_token
+    if not token:
+        st.warning("Geçerli bir oturum bulunamadı. Lütfen size iletilen linke tekrar tıklayın.")
+        # Mobil tarayıcılar için manuel kod girme alanı (Yedek Güvenlik)
+        manual = st.text_input("Veya 8 haneli giriş kodunuzu buraya yazın:", placeholder="Örn: a1b2c3d4").strip()
+        if st.button("Giriş Yap", type="primary"):
+            st.session_state.magic_token = manual
+            st.rerun()
+        st.stop() # Bu komut aşağıda hata oluşmasını engeller, uygulamanın durmasını sağlar.
 
     # --- VERİ ÇEKME ---
     try:
-        # Mobil şebeke dalgalanmaları için timeout 20 saniyeye çıkarıldı (Hız için kritik)
         with httpx.Client(timeout=20.0) as client:
             r = client.get(SUPABASE_URL, headers=HEADERS)
             data = r.json()
         
         user_row = [t for t in data if t.get("magic_token") == token]
         if not user_row: 
-            st.error("Kod geçersiz. Lütfen linki veya kodu kontrol edin.")
-            if st.button("Sıfırla ve Tekrar Dene"):
+            st.error("Kod geçersiz veya süresi dolmuş.")
+            if st.button("Sıfırla"):
                 st.session_state.magic_token = None
                 st.rerun()
             st.stop()
@@ -81,7 +77,7 @@ def main():
         user_name = user_row[0]["personel_ad"]
         today_str = datetime.now().strftime("%Y-%m-%d")
 
-        # Veri filtreleme
+        # Filtrelemeler
         my_tasks = [t for t in data if t.get("personel_ad") == user_name and t.get("deadline", "").startswith(today_str)]
         my_done = sum(1 for t in my_tasks if t.get("durum") == "tamamlandi")
         my_total = len(my_tasks)
@@ -168,7 +164,7 @@ def main():
                     c_c.caption(f"👤 {ft['personel_ad']} | ⏰ {ft['deadline'][11:16]}")
 
     except Exception as e:
-        st.error(f"Veri bağlantısı kurulamadı. Lütfen sayfayı yenileyin.")
+        st.error(f"Veri bağlantısı hatası.")
 
 if __name__ == "__main__":
     main()
