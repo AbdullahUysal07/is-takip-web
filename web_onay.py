@@ -35,30 +35,34 @@ st.markdown(f"""
     .stat-card {{ background: {T_CARD}; border: 1px solid {T_BORDER}; border-radius: 12px; padding: 20px; text-align: left; }}
     .stat-val {{ font-size: 32px; font-weight: 700; color: {T_PRIMARY}; }}
     .stat-label {{ font-size: 13px; color: {T_MUTED}; font-weight: 600; text-transform: uppercase; }}
+    .stButton > button {{ border-radius: 20px !important; font-size: 12px !important; }}
 </style>
 """, unsafe_allow_html=True)
 
 def main():
-    # --- KRİTİK ONARIM: BELİRTTİĞİN ÇÖZÜMÜN ENTEGRASYONU ---
-    # 1. Hafızada kod var mı bak?
+    # --- CERRAHİ ONARIM: MOBİL HAFIZA VE ST.STOP() MANTIĞI ---
+    # 1. Oturum hafızasını kontrol et
     if "magic_token" not in st.session_state:
         st.session_state.magic_token = None
 
-    # 2. URL'den kodu yakala
-    q_params = st.query_params
-    if "id" in q_params:
-        st.session_state.magic_token = q_params["id"]
+    # 2. URL'den token yakalamaya çalış (Sadece hafıza boşsa)
+    params = st.query_params
+    if "id" in params:
+        st.session_state.magic_token = params["id"]
 
-    # 3. SENİN ÇÖZÜMÜN (Tam buraya ekledik):
+    # 3. Kritik Bariyer: Eğer ne URL'de ne hafızada token yoksa durdur ve giriş alanı göster
+    if not st.session_state.magic_token:
+        st.markdown("<h2 style='text-align:center; color:#1a73e8;'>TASKLY Workspace</h2>", unsafe_allow_html=True)
+        st.warning("Oturum bilgisi linkten okunamadı.")
+        manual_id = st.text_input("Lütfen size iletilen 8 haneli kodu buraya girin:", placeholder="Örn: a1b2c3d4").strip()
+        if st.button("Giriş Yap", type="primary", use_container_width=True):
+            if manual_id:
+                st.session_state.magic_token = manual_id
+                st.rerun()
+        st.stop() # İşte o beyaz ekranı engelleyen ve kodu girmeye zorlayan komut.
+
+    # Token artık hafızadan okunuyor (Mobil linki silsede hafıza silinmez)
     token = st.session_state.magic_token
-    if not token:
-        st.warning("Geçerli bir oturum bulunamadı. Lütfen size iletilen linke tekrar tıklayın.")
-        # Mobil tarayıcılar için manuel kod girme alanı (Yedek Güvenlik)
-        manual = st.text_input("Veya 8 haneli giriş kodunuzu buraya yazın:", placeholder="Örn: a1b2c3d4").strip()
-        if st.button("Giriş Yap", type="primary"):
-            st.session_state.magic_token = manual
-            st.rerun()
-        st.stop() # Bu komut aşağıda hata oluşmasını engeller, uygulamanın durmasını sağlar.
 
     # --- VERİ ÇEKME ---
     try:
@@ -68,8 +72,8 @@ def main():
         
         user_row = [t for t in data if t.get("magic_token") == token]
         if not user_row: 
-            st.error("Kod geçersiz veya süresi dolmuş.")
-            if st.button("Sıfırla"):
+            st.error("Giriş kodu geçersiz.")
+            if st.button("Geri Dön"):
                 st.session_state.magic_token = None
                 st.rerun()
             st.stop()
@@ -96,20 +100,23 @@ def main():
         if menu == "📊 Dashboard":
             st.markdown(f"## Hoş Geldin, {user_name.split()[0]} 👋")
             c1, c2, c3, c4 = st.columns(4)
+            
             with c1:
                 st.markdown(f'<div class="stat-card"><div class="stat-label">İşlerin</div><div class="stat-val">{my_total}</div></div>', unsafe_allow_html=True)
                 if st.button("📂 İşlerime Git", use_container_width=True):
                     st.session_state.nav_menu = "📝 Görevlerim"
                     st.rerun()
+                    
             with c2: st.markdown(f'<div class="stat-card"><div class="stat-label">Biten</div><div class="stat-val">{my_done}</div></div>', unsafe_allow_html=True)
             with c3: st.markdown(f'<div class="stat-card"><div class="stat-label">Ekip</div><div class="stat-val">{team_done}</div></div>', unsafe_allow_html=True)
             with c4:
                 perf = int((my_done/my_total)*100) if my_total > 0 else 100
                 st.markdown(f'<div class="stat-card"><div class="stat-label">Verim</div><div class="stat-val">%{perf}</div></div>', unsafe_allow_html=True)
+            
             st.write("---")
             st.progress((team_done / len(team_today)) if len(team_today) > 0 else 0)
 
-        # --- 2. GÖREVLERİM ---
+        # --- GÖREVLERİM ---
         elif menu == "📝 Görevlerim":
             st.markdown("## Günlük Görevlerin")
             col1, col2 = st.columns(2)
@@ -136,35 +143,41 @@ def main():
                     if t['durum'] != ns: httpx.patch(f"{SUPABASE_URL}?id=eq.{t['id']}", headers=HEADERS, json={"durum": ns})
                 st.rerun()
 
-        # --- 3. ŞİRKET RADARI ---
+        # --- 2. ŞİRKET RADARI ---
         elif menu == "🌐 Şirket Radarı":
             st.markdown("## Şirket Radarı")
             for b in team_today:
                 with st.container(border=True):
-                    c_i, c_s = st.columns([4, 1])
-                    t_s = b.get('deadline', '').replace('T', ' | ')
-                    d_m = "✅ Bitti" if b['durum'] == 'tamamlandi' else "⏳ Devam"
-                    d_r = "green" if b['durum'] == 'tamamlandi' else "orange"
-                    c_i.markdown(f"**{b['personel_ad']}**")
-                    c_i.write(f"📄 {b['is_tanimi']}")
-                    c_i.caption(f"📅 {t_s}")
-                    c_s.markdown(f"<p style='color:{d_r}; font-weight:bold; font-size:11px;'>{d_m}</p>", unsafe_allow_html=True)
+                    c_info, c_status = st.columns([4, 1])
+                    t_saat = b.get('deadline', '').replace('T', ' | ')
+                    d_metin = "✅ Tamamlandı" if b['durum'] == 'tamamlandi' else "⏳ Çalışılıyor"
+                    d_renk = "green" if b['durum'] == 'tamamlandi' else "orange"
+                    c_info.markdown(f"**{b['personel_ad']}**")
+                    c_info.write(f"📄 {b['is_tanimi']}")
+                    c_info.caption(f"📅 {t_saat}")
+                    c_status.markdown(f"<p style='color:{d_renk}; font-weight:bold; font-size:11px;'>{d_metin}</p>", unsafe_allow_html=True)
 
-        # --- 4. GELECEK PLANLARIM ---
+        # --- 3. GELECEK PLANLARIM ---
         elif menu == "🗓️ Gelecek Planlarım":
             st.markdown("## Şirket Gelecek Ajandası")
             f_all = [t for t in data if t.get("deadline", "").split("T")[0] > today_str]
             f_all.sort(key=lambda x: x.get("deadline", ""))
             for ft in f_all:
                 with st.container(border=True):
-                    c_d, c_c = st.columns([1, 4])
-                    d_o = datetime.strptime(ft['deadline'][:10], "%Y-%m-%d")
-                    c_d.markdown(f"<div style='text-align:center; background:#f1f3f4; padding:5px; border-radius:5px;'><b>{d_o.day}</b><br><small>{d_o.strftime('%b')}</small></div>", unsafe_allow_html=True)
-                    c_c.markdown(f"**{ft['is_tanimi']}**")
-                    c_c.caption(f"👤 {ft['personel_ad']} | ⏰ {ft['deadline'][11:16]}")
+                    col_d, col_c = st.columns([1, 4])
+                    d_obj = datetime.strptime(ft['deadline'][:10], "%Y-%m-%d")
+                    col_d.markdown(f"""
+                        <div style="background:#f1f3f4; border-radius:8px; padding:10px; text-align:center; border-left:5px solid {T_PRIMARY};">
+                            <div style="font-size:10px; color:{T_MUTED};">{d_obj.strftime('%b').upper()}</div>
+                            <div style="font-size:20px; font-weight:bold; color:{T_PRIMARY};">{d_obj.day}</div>
+                            <div style="font-size:10px; color:{T_TEXT};">{ft['deadline'][11:16]}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    col_c.markdown(f"**{ft['is_tanimi']}**")
+                    col_c.caption(f"👤 Sorumlu: {ft['personel_ad']}")
 
     except Exception as e:
-        st.error(f"Veri bağlantısı hatası.")
+        st.error("Sunucu bağlantısı bekleniyor...")
 
 if __name__ == "__main__":
     main()
