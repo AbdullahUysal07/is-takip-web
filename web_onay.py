@@ -3,17 +3,17 @@ import httpx
 from datetime import datetime, timedelta
 import random
 
-# --- SAYFA AYARLARI ---
+# --- SAYFA AYARLARI (Masaüstüne Zorlandı) ---
 st.set_page_config(
     page_title="FLU DİJİTAL | Workspace", 
     page_icon="✉️", 
     layout="wide",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded" # Menü her zaman açık başlar
 )
 
 # --- TEMA YÖNETİMİ ---
 if "theme" not in st.session_state:
-    st.session_state.theme = "Day"  # Gmail sadeliği için varsayılan Gündüz Modu
+    st.session_state.theme = "Day"
 
 # --- VERİTABANI AYARLARI ---
 SUPABASE_URL = "https://fxohhhqrhybbqqwqxejc.supabase.co/rest/v1/gorevler"
@@ -27,32 +27,38 @@ HEADERS = {
 
 # --- GMAIL / MATERIAL DESIGN RENK PALETİ ---
 if st.session_state.theme == "Night":
-    T_BG = "#202124"          # Google Koyu Gri Arka Plan
-    T_SIDEBAR = "#28292c"     # Sidebar için bir tık açık koyu gri
-    T_CARD = "#303134"        # Koyu Kart Rengi
-    T_TEXT = "#ffffff"        # TAM BEYAZ (Okunabilirlik için)
-    T_MUTED = "#9aa0a6"       # Soluk Gri Metin
-    T_BORDER = "#5f6368"      # Koyu Çizgi
-    T_PRIMARY = "#8ab4f8"     # Google Açık Mavi
-    T_BTN_TEXT = "#202124"    # Buton içi koyu metin
+    T_BG = "#202124"
+    T_SIDEBAR = "#28292c"
+    T_CARD = "#303134"
+    T_TEXT = "#ffffff"
+    T_MUTED = "#9aa0a6"
+    T_BORDER = "#5f6368"
+    T_PRIMARY = "#8ab4f8"
+    T_BTN_TEXT = "#202124"
     T_DONE_BG = "rgba(138, 180, 248, 0.08)"
 else:
-    T_BG = "#ffffff"          # Saf Beyaz
-    T_SIDEBAR = "#f6f8fc"     # Gmail Sidebar Grisi
+    T_BG = "#ffffff"
+    T_SIDEBAR = "#f6f8fc"
     T_CARD = "#ffffff"        
-    T_TEXT = "#202124"        # Koyu Metin
-    T_MUTED = "#5f6368"       # Soluk Metin
-    T_BORDER = "#dadce0"      # İnce Gri Çizgi
-    T_PRIMARY = "#1a73e8"     # Orijinal Google Mavisi
+    T_TEXT = "#202124"
+    T_MUTED = "#5f6368"
+    T_BORDER = "#dadce0"
+    T_PRIMARY = "#1a73e8"
     T_BTN_TEXT = "#ffffff"
     T_DONE_BG = "#f8f9fa"
 
-# --- MATERIAL DESIGN CSS (GÜÇLENDİRİLMİŞ SAFARI & METİN FİX) ---
+# --- MATERIAL DESIGN CSS (SADECE WEB / MASAÜSTÜ ZORLAMASI) ---
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
     
-    .stApp {{ background-color: {T_BG}; font-family: 'Roboto', sans-serif; transition: all 0.2s ease; }}
+    /* MOBİLİ İPTAL ET: Uygulamayı minimum 1200px genişliğe zorla */
+    .stApp {{ 
+        background-color: {T_BG}; 
+        font-family: 'Roboto', sans-serif; 
+        transition: all 0.2s ease;
+        min-width: 1200px !important; 
+    }}
     
     .stApp p, .stApp span, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp label {{
         color: {T_TEXT} !important;
@@ -60,37 +66,15 @@ st.markdown(f"""
     
     #MainMenu {{visibility: hidden;}} footer {{visibility: hidden;}} .stDeployButton {{display:none;}}
 
-    /* SAFARİ İÇİN KESİN MENÜ BUTONU ÇÖZÜMÜ */
-    [data-testid="collapsedControl"] button,
-    button[data-testid="stSidebarCollapseButton"] {{
-        background-color: {T_CARD} !important; 
-        border: 1px solid {T_BORDER} !important;
-        border-radius: 50% !important; 
-        top: 12px !important; 
-        left: 12px !important;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.2) !important;
-        z-index: 999999 !important;
-        padding: 5px !important;
+    /* Sidebar (Gmail Sol Menü Mantığı) */
+    section[data-testid="stSidebar"] {{ 
+        background-color: {T_SIDEBAR} !important; 
+        border-right: none !important; 
     }}
-    
-    /* Safari'nin ikon renklerini ezmesini engellemek için tüm yolları(path) boyuyoruz */
-    [data-testid="collapsedControl"] svg,
-    button[data-testid="stSidebarCollapseButton"] svg,
-    button[data-testid="stSidebarCollapseButton"] path,
-    button[data-testid="stSidebarCollapseButton"] circle {{ 
-        fill: {T_TEXT} !important; 
-        color: {T_TEXT} !important; 
-        stroke: {T_TEXT} !important;
-    }}
-    
-    button[data-testid="stSidebarCollapseButton"]:hover {{ filter: brightness(1.2); }}
-
-    /* Sidebar */
-    section[data-testid="stSidebar"] {{ background-color: {T_SIDEBAR} !important; border-right: none !important; }}
     div[data-testid="stSidebar"] div[role="radiogroup"] label p {{ font-weight: 500; font-size: 14px; }}
     div[data-testid="stSidebar"] div[data-testid="stCaptionContainer"] p {{ color: {T_MUTED} !important; }}
 
-    /* Başlık Alanı */
+    /* Başlık Alanı (Hero) */
     .material-header {{
         border-bottom: 1px solid {T_BORDER}; padding-bottom: 16px; margin-bottom: 24px; margin-top: 10px;
     }}
@@ -105,7 +89,7 @@ st.markdown(f"""
     .stat-val {{ font-size: 28px; font-weight: 400; color: {T_PRIMARY} !important; line-height: 1.2; }}
     .stat-label {{ font-size: 12px; color: {T_MUTED} !important; font-weight: 500; letter-spacing: 0.5px; }}
 
-    /* Görev Kartları */
+    /* Görev/Mail Kartları (Flat Design) */
     .material-card {{
         background: {T_CARD}; border: 1px solid {T_BORDER}; border-radius: 8px; 
         padding: 14px 16px; margin-bottom: 8px;
