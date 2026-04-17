@@ -1,14 +1,14 @@
 import streamlit as st
 import httpx
-from datetime import datetime, timedelta
+from datetime import datetime
 import random
 
-# --- SAYFA AYARLARI (Masaüstüne Zorlandı) ---
+# --- SAYFA AYARLARI (Mobil için 'auto' yapıldı, beyaz ekran sorunu çözüldü) ---
 st.set_page_config(
     page_title="FLU DİJİTAL | Workspace", 
     page_icon="✉️", 
     layout="wide",
-    initial_sidebar_state="expanded" # Menü her zaman açık başlar
+    initial_sidebar_state="auto" 
 )
 
 # --- TEMA YÖNETİMİ ---
@@ -27,54 +27,64 @@ HEADERS = {
 
 # --- GMAIL / MATERIAL DESIGN RENK PALETİ ---
 if st.session_state.theme == "Night":
-    T_BG = "#202124"
-    T_SIDEBAR = "#28292c"
-    T_CARD = "#303134"
-    T_TEXT = "#ffffff"
-    T_MUTED = "#9aa0a6"
-    T_BORDER = "#5f6368"
-    T_PRIMARY = "#8ab4f8"
-    T_BTN_TEXT = "#202124"
+    T_BG = "#202124"          # Google Koyu Gri Arka Plan
+    T_SIDEBAR = "#28292c"     
+    T_CARD = "#303134"        
+    T_TEXT = "#ffffff"        # TAM BEYAZ (Gece modu okunabilirliği)
+    T_MUTED = "#9aa0a6"       
+    T_BORDER = "#5f6368"      
+    T_PRIMARY = "#8ab4f8"     
+    T_BTN_TEXT = "#202124"    
     T_DONE_BG = "rgba(138, 180, 248, 0.08)"
 else:
-    T_BG = "#ffffff"
-    T_SIDEBAR = "#f6f8fc"
+    T_BG = "#ffffff"          
+    T_SIDEBAR = "#f6f8fc"     
     T_CARD = "#ffffff"        
-    T_TEXT = "#202124"
-    T_MUTED = "#5f6368"
-    T_BORDER = "#dadce0"
-    T_PRIMARY = "#1a73e8"
+    T_TEXT = "#202124"        
+    T_MUTED = "#5f6368"       
+    T_BORDER = "#dadce0"      
+    T_PRIMARY = "#1a73e8"     
     T_BTN_TEXT = "#ffffff"
     T_DONE_BG = "#f8f9fa"
 
-# --- MATERIAL DESIGN CSS (SADECE WEB / MASAÜSTÜ ZORLAMASI) ---
+# --- MATERIAL DESIGN CSS (MOBİL UYUMLU & TEMA FİXLİ) ---
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
     
-    /* MOBİLİ İPTAL ET: Uygulamayı minimum 1200px genişliğe zorla */
-    .stApp {{ 
-        background-color: {T_BG}; 
-        font-family: 'Roboto', sans-serif; 
-        transition: all 0.2s ease;
-        min-width: 1200px !important; 
-    }}
+    /* Genel Uygulama Ayarları */
+    .stApp {{ background-color: {T_BG}; font-family: 'Roboto', sans-serif; transition: all 0.2s ease; }}
     
+    /* Metin Renklerini Zorla (Gece modunda siyah kalmaması için) */
     .stApp p, .stApp span, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp label {{
         color: {T_TEXT} !important;
     }}
     
     #MainMenu {{visibility: hidden;}} footer {{visibility: hidden;}} .stDeployButton {{display:none;}}
 
-    /* Sidebar (Gmail Sol Menü Mantığı) */
-    section[data-testid="stSidebar"] {{ 
-        background-color: {T_SIDEBAR} !important; 
-        border-right: none !important; 
+    /* MOBİL MENÜ BUTONU (Sol üstteki 3 çizgi / ok işareti) */
+    [data-testid="collapsedControl"] {{
+        background-color: transparent !important;
+        z-index: 999999 !important;
     }}
+    [data-testid="collapsedControl"] button, button[data-testid="stSidebarCollapseButton"] {{
+        background-color: {T_CARD} !important; 
+        border: 1px solid {T_BORDER} !important;
+        border-radius: 50% !important; 
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1) !important;
+        color: {T_TEXT} !important;
+    }}
+    [data-testid="collapsedControl"] svg, button[data-testid="stSidebarCollapseButton"] svg {{
+        fill: {T_TEXT} !important; 
+        color: {T_TEXT} !important;
+    }}
+
+    /* Sidebar */
+    section[data-testid="stSidebar"] {{ background-color: {T_SIDEBAR} !important; border-right: none !important; }}
     div[data-testid="stSidebar"] div[role="radiogroup"] label p {{ font-weight: 500; font-size: 14px; }}
     div[data-testid="stSidebar"] div[data-testid="stCaptionContainer"] p {{ color: {T_MUTED} !important; }}
 
-    /* Başlık Alanı (Hero) */
+    /* Başlık Alanı */
     .material-header {{
         border-bottom: 1px solid {T_BORDER}; padding-bottom: 16px; margin-bottom: 24px; margin-top: 10px;
     }}
@@ -84,12 +94,12 @@ st.markdown(f"""
     /* İstatistik Kartları */
     .stat-card {{
         background: {T_CARD}; border: 1px solid {T_BORDER}; border-radius: 8px; 
-        padding: 16px; text-align: left;
+        padding: 16px; text-align: left; margin-bottom: 10px;
     }}
     .stat-val {{ font-size: 28px; font-weight: 400; color: {T_PRIMARY} !important; line-height: 1.2; }}
     .stat-label {{ font-size: 12px; color: {T_MUTED} !important; font-weight: 500; letter-spacing: 0.5px; }}
 
-    /* Görev/Mail Kartları (Flat Design) */
+    /* Görev Kartları */
     .material-card {{
         background: {T_CARD}; border: 1px solid {T_BORDER}; border-radius: 8px; 
         padding: 14px 16px; margin-bottom: 8px;
@@ -116,8 +126,8 @@ st.markdown(f"""
         background-color: {T_PRIMARY} !important; color: {T_BTN_TEXT} !important;
         font-weight: 500 !important; border-radius: 24px !important; 
         border: none !important; padding: 10px 24px !important; font-size: 14px !important;
+        width: 100%;
     }}
-    div.stButton > button:first-child:hover {{ box-shadow: 0 1px 3px rgba(255,255,255,0.1) !important; filter: brightness(0.95); }}
     div.stButton > button:first-child p {{ color: {T_BTN_TEXT} !important; }}
 </style>
 """, unsafe_allow_html=True)
@@ -125,17 +135,19 @@ st.markdown(f"""
 def main():
     token = st.query_params.get("id")
     if not token:
-        st.markdown(f'<div class="material-header"><h1>FLU DİJİTAL</h1><p>Geçerli bir oturum bulunamadı.</p></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="material-header"><h1>FLU DİJİTAL</h1><p>Geçerli bir oturum bulunamadı. Lütfen size iletilen linke tıklayın.</p></div>', unsafe_allow_html=True)
         st.stop()
 
     # --- VERİ ÇEKME ---
     try:
-        with httpx.Client(timeout=10.0) as client:
+        with httpx.Client(timeout=15.0) as client:
             r = client.get(SUPABASE_URL, headers=HEADERS)
             data = r.json()
         
         user_row = [t for t in data if t.get("magic_token") == token]
-        if not user_row: st.stop()
+        if not user_row: 
+            st.error("Link geçersiz veya süresi dolmuş.")
+            st.stop()
         
         user_name = user_row[0]["personel_ad"]
         today_str = datetime.now().strftime("%Y-%m-%d")
@@ -147,12 +159,11 @@ def main():
         team_today = [t for t in data if t.get("deadline", "").startswith(today_str)]
         team_done = sum(1 for t in team_today if t.get("durum") == "tamamlandi")
     except:
-        st.error("Bağlantı sağlanamadı.")
+        st.error("Sunucuya bağlanılamadı. Lütfen internetinizi kontrol edip sayfayı yenileyin.")
         st.stop()
 
     # --- YAN MENÜ (SIDEBAR) ---
     with st.sidebar:
-        # Tema Değiştirici
         theme_icon = "🌙 Gece Modu" if st.session_state.theme == "Day" else "☀️ Gündüz Modu"
         if st.button(theme_icon):
             st.session_state.theme = "Night" if st.session_state.theme == "Day" else "Day"
@@ -168,7 +179,7 @@ def main():
         st.markdown(f"""
             <div class="material-header">
                 <h1>Hoş Geldin, {user_name}</h1>
-                <p>{datetime.now().strftime('%d.%m.%Y')} • İşte çalışma masanın güncel özeti.</p>
+                <p>{datetime.now().strftime('%d.%m.%Y')} • İşte güncel çalışma özetin.</p>
             </div>
         """, unsafe_allow_html=True)
 
@@ -207,7 +218,7 @@ def main():
                     {f'<div class="card-desc">{t["notlar"]}</div>' if t.get("notlar") else ''}
                 </div>
                 """, unsafe_allow_html=True)
-                st.checkbox("Tamamlandı olarak işaretle", key=t['id'])
+                st.checkbox("Tamamlandı", key=t['id'])
         with col2:
             st.markdown("##### ✔️ Bitenler")
             for t in done:
