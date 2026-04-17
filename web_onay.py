@@ -2,16 +2,12 @@ import streamlit as st
 import httpx
 from datetime import datetime
 
-# --- SAYFA AYARLARI ---
+# --- SAYFA AYARLARI (En güvenli haliyle bırakıldı) ---
 st.set_page_config(
     page_title="FLU DİJİTAL | Workspace", 
     page_icon="✉️", 
     layout="wide"
 )
-
-# --- TEMA YÖNETİMİ ---
-if "theme" not in st.session_state:
-    st.session_state.theme = "Day"
 
 # --- VERİTABANI AYARLARI ---
 SUPABASE_URL = "https://fxohhhqrhybbqqwqxejc.supabase.co/rest/v1/gorevler"
@@ -23,54 +19,61 @@ HEADERS = {
     "Prefer": "return=representation"
 }
 
-# --- GÜVENLİ RENK PALETİ ---
-if st.session_state.theme == "Night":
-    bg_color = "#202124"
-    text_color = "#ffffff"
-    card_bg = "#303134"
-    border_color = "#5f6368"
-    accent_color = "#8ab4f8"
-else:
-    bg_color = "#ffffff"
-    text_color = "#202124"
-    card_bg = "#ffffff"
-    border_color = "#dadce0"
-    accent_color = "#1a73e8"
+# --- TEMA VE RENK AYARLARI (Sadece Kartlar İçin) ---
+if "theme" not in st.session_state:
+    st.session_state.theme = "Day"
 
-# --- %100 GÜVENLİ CSS (SADECE KARTLARI ETKİLER) ---
+if st.session_state.theme == "Night":
+    T_CARD = "#303134"
+    T_TEXT = "#ffffff"
+    T_MUTED = "#9aa0a6"
+    T_BORDER = "#5f6368"
+    T_PRIMARY = "#8ab4f8"
+    T_DONE_BG = "rgba(138, 180, 248, 0.08)"
+else:
+    T_CARD = "#ffffff"        
+    T_TEXT = "#202124"
+    T_MUTED = "#5f6368"
+    T_BORDER = "#dadce0"
+    T_PRIMARY = "#1a73e8"
+    T_DONE_BG = "#f8f9fa"
+
+# --- GÜVENLİ CSS (Sadece bizim ürettiğimiz kartları etkiler) ---
 st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
     
-    .stApp {{ background-color: {bg_color}; font-family: 'Roboto', sans-serif; }}
-    .stApp p, .stApp span, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp h5, .stApp h6, .stApp label {{ color: {text_color} !important; }}
-    
-    /* GMAIL TASARIM KARTLARI */
-    .material-header {{ border-bottom: 1px solid {border_color}; padding-bottom: 15px; margin-bottom: 25px; margin-top: 10px; }}
-    .material-header h1 {{ font-size: 26px !important; margin: 0; color: {text_color}; }}
-    .material-header p {{ opacity: 0.7; font-size: 13px; margin-top: 5px; }}
-    
-    .stat-card {{ background: {card_bg}; border: 1px solid {border_color}; border-radius: 8px; padding: 15px; text-align: center; margin-bottom: 10px; }}
-    .stat-val {{ font-size: 26px; font-weight: bold; color: {accent_color}; line-height: 1.2; }}
-    .stat-label {{ font-size: 11px; opacity: 0.7; margin-top: 5px; }}
-    
-    .material-card {{ background: {card_bg}; border: 1px solid {border_color}; border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; flex-direction: column; }}
-    .card-top {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }}
-    .card-title {{ font-weight: bold; font-size: 14px; color: {text_color}; }}
-    .card-time {{ font-size: 12px; color: {accent_color}; font-weight: bold; }}
-    .card-desc {{ font-size: 12px; opacity: 0.8; margin-top: 5px; }}
-    
-    /* Streamlit Butonlarını Yuvarlak Yapma */
-    div.stButton > button:first-child {{
-        border-radius: 20px !important; border: 1px solid {accent_color} !important; color: {text_color} !important; background: transparent !important; width: 100%;
+    /* İstatistik Kartları */
+    .stat-card {{
+        background: {T_CARD}; border: 1px solid {T_BORDER}; border-radius: 8px; 
+        padding: 16px; text-align: left; margin-bottom: 15px; font-family: 'Roboto', sans-serif;
     }}
+    .stat-val {{ font-size: 28px; font-weight: 400; color: {T_PRIMARY}; line-height: 1.2; }}
+    .stat-label {{ font-size: 12px; color: {T_MUTED}; font-weight: 500; letter-spacing: 0.5px; }}
+
+    /* Görev Kartları */
+    .material-card {{
+        background: {T_CARD}; border: 1px solid {T_BORDER}; border-radius: 8px; 
+        padding: 14px 16px; margin-bottom: 10px; font-family: 'Roboto', sans-serif;
+        display: flex; flex-direction: column; justify-content: center;
+    }}
+    .material-card-done {{ background: {T_DONE_BG}; border-color: {T_BORDER}; opacity: 0.8; }}
+    
+    .card-top {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }}
+    .card-title {{ font-size: 14px; font-weight: 500; color: {T_TEXT}; }}
+    .card-time {{ font-size: 12px; font-weight: 500; color: {T_PRIMARY}; }}
+    .card-desc {{ font-size: 13px; color: {T_MUTED}; margin-top: 4px; }}
+    .card-label {{ font-size: 11px; color: {T_MUTED}; margin-top: 8px; }}
+    
+    /* Sadece kendi başlıklarımızı stillendiriyoruz */
+    .custom-h {{ color: {T_TEXT}; font-family: 'Roboto', sans-serif; font-weight: 500; }}
 </style>
 """, unsafe_allow_html=True)
 
 def main():
     token = st.query_params.get("id")
     if not token:
-        st.markdown(f'<div class="material-header"><h1>FLU DİJİTAL</h1><p>Geçerli bir oturum bulunamadı.</p></div>', unsafe_allow_html=True)
+        st.warning("Geçerli bir oturum bulunamadı. Lütfen size iletilen linke tıklayın.")
         st.stop()
 
     # --- VERİ ÇEKME ---
@@ -94,12 +97,13 @@ def main():
         team_today = [t for t in data if t.get("deadline", "").startswith(today_str)]
         team_done = sum(1 for t in team_today if t.get("durum") == "tamamlandi")
     except:
-        st.error("Sunucuya bağlanılamadı. Lütfen sayfayı yenileyin.")
+        st.error("Sunucuya bağlanılamadı. İnternetinizi kontrol edip sayfayı yenileyin.")
         st.stop()
 
     # --- YAN MENÜ ---
     with st.sidebar:
-        theme_icon = "🌙 Gece Modu" if st.session_state.theme == "Day" else "☀️ Gündüz Modu"
+        st.title("FLU DİJİTAL")
+        theme_icon = "🌙 Kartları Gece Modu Yap" if st.session_state.theme == "Day" else "☀️ Kartları Gündüz Modu Yap"
         if st.button(theme_icon):
             st.session_state.theme = "Night" if st.session_state.theme == "Day" else "Day"
             st.rerun()
@@ -107,40 +111,39 @@ def main():
         st.write("---")
         menu = st.radio("MENÜ", ["📥 Ana Sayfa", "📝 Görevlerim", "🌐 Şirket Radarı", "🗓️ Gelecek İşler"])
         st.write("---")
-        st.caption(f"👤 Aktif Kullanıcı: {user_name}")
+        st.caption(f"👤 {user_name}")
 
     # --- DASHBOARD ---
     if menu == "📥 Ana Sayfa":
-        st.markdown(f"""
-            <div class="material-header">
-                <h1>Hoş Geldin, {user_name}</h1>
-                <p>{datetime.now().strftime('%d.%m.%Y')} • İşte çalışma masanın güncel özeti.</p>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"<h2 class='custom-h'>Hoş Geldin, {user_name}</h2>", unsafe_allow_html=True)
+        st.caption(f"{datetime.now().strftime('%d.%m.%Y')} • İşte çalışma masanın güncel özeti.")
+        st.write("")
 
         c1, c2, c3, c4 = st.columns(4)
         with c1: st.markdown(f'<div class="stat-card"><div class="stat-val">{my_total}</div><div class="stat-label">SANA ATANAN İŞ</div></div>', unsafe_allow_html=True)
         with c2: st.markdown(f'<div class="stat-card"><div class="stat-val">{my_done}</div><div class="stat-label">TAMAMLANAN</div></div>', unsafe_allow_html=True)
-        with c3: st.markdown(f'<div class="stat-card"><div class="stat-val">{team_done}</div><div class="stat-label">ŞİRKET BİTEN</div></div>', unsafe_allow_html=True)
+        with c3: st.markdown(f'<div class="stat-card"><div class="stat-val">{team_done}</div><div class="stat-label">ŞİRKET GENELİ BİTEN</div></div>', unsafe_allow_html=True)
         with c4:
             perf = int((my_done/my_total)*100) if my_total > 0 else 100
             st.markdown(f'<div class="stat-card"><div class="stat-val">%{perf}</div><div class="stat-label">VERİMLİLİK</div></div>', unsafe_allow_html=True)
 
-        st.write("")
-        st.markdown(f"<span style='font-size:14px; font-weight:500;'>Şirket Geneli İlerleme Durumu</span>", unsafe_allow_html=True)
+        st.write("---")
+        st.markdown("##### 📊 Şirket Geneli İlerleme Durumu")
         team_total = len(team_today)
         team_perc = (team_done / team_total) if team_total > 0 else 0
         st.progress(team_perc)
 
     # --- GÖREVLERİM ---
     elif menu == "📝 Görevlerim":
-        st.markdown(f'<div class="material-header"><h1>Görevlerin</h1><p>Bugün sana atanmış işler listesi.</p></div>', unsafe_allow_html=True)
+        st.markdown("<h3 class='custom-h'>Görevlerin</h3>", unsafe_allow_html=True)
+        st.caption("Bugün sana atanmış işler listesi.")
+        
         col1, col2 = st.columns(2)
         todo = [t for t in my_tasks if t.get("durum") != "tamamlandi"]
         done = [t for t in my_tasks if t.get("durum") == "tamamlandi"]
         
         with col1:
-            st.markdown("##### ⏳ Bekleyenler")
+            st.write("⏳ Bekleyenler")
             for t in todo:
                 saat = t.get("deadline","").split("T")[1][:5]
                 st.markdown(f"""
@@ -152,22 +155,22 @@ def main():
                     {f'<div class="card-desc">{t["notlar"]}</div>' if t.get("notlar") else ''}
                 </div>
                 """, unsafe_allow_html=True)
-                st.checkbox("Tamamlandı olarak işaretle", key=t['id'])
+                st.checkbox("Tamamlandı", key=t['id'])
                 
         with col2:
-            st.markdown("##### ✔️ Bitenler")
+            st.write("✔️ Bitenler")
             for t in done:
                 st.markdown(f"""
-                <div class="material-card" style="opacity: 0.6;">
+                <div class="material-card material-card-done">
                     <div class="card-top">
-                        <div class="card-title" style="text-decoration: line-through;">{t["is_tanimi"]}</div>
-                        <div class="card-time">Tamamlandı</div>
+                        <div class="card-title" style="text-decoration: line-through; color: {T_MUTED};">{t["is_tanimi"]}</div>
+                        <div class="card-time" style="color: {T_MUTED};">Tamamlandı</div>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
         
-        st.write("")
-        if st.button("Değişiklikleri Kaydet"):
+        st.write("---")
+        if st.button("🚀 Değişiklikleri Kaydet", use_container_width=True):
             for t in my_tasks:
                 ns = "tamamlandi" if st.session_state.get(t['id']) else "bekliyor"
                 if t['durum'] != ns: httpx.patch(f"{SUPABASE_URL}?id=eq.{t['id']}", headers=HEADERS, json={"durum": ns})
@@ -175,23 +178,25 @@ def main():
 
     # --- ŞİRKET RADARI ---
     elif menu == "🌐 Şirket Radarı":
-        st.markdown(f'<div class="material-header"><h1>Şirket Radarı</h1><p>Ekipteki diğer çalışma arkadaşların neler yapıyor?</p></div>', unsafe_allow_html=True)
+        st.markdown("<h3 class='custom-h'>Şirket Radarı</h3>", unsafe_allow_html=True)
+        st.caption("Ekipteki diğer çalışma arkadaşların neler yapıyor?")
+        
         c1, c2 = st.columns(2)
         with c1:
-            st.markdown("##### ✔️ Tamamlanan İşler")
+            st.write("✔️ Tamamlanan İşler")
             for b in [t for t in team_today if t.get("durum") == "tamamlandi"]:
                 saat = b.get("deadline","").split("T")[1][:5]
                 st.markdown(f"""
-                <div class="material-card" style="opacity: 0.6;">
+                <div class="material-card material-card-done">
                     <div class="card-top">
                         <div class="card-title">{b["is_tanimi"]}</div>
-                        <div class="card-time">{saat}</div>
+                        <div class="card-time" style="color: {T_MUTED};">{saat}</div>
                     </div>
-                    <div class="card-desc">👤 {b["personel_ad"]}</div>
+                    <div class="card-label">👤 {b["personel_ad"]}</div>
                 </div>
                 """, unsafe_allow_html=True)
         with c2:
-            st.markdown("##### ⏳ Üzerinde Çalışılanlar")
+            st.write("⏳ Üzerinde Çalışılanlar")
             for d in [t for t in team_today if t.get("durum") != "tamamlandi"]:
                 saat = d.get("deadline","").split("T")[1][:5]
                 st.markdown(f"""
@@ -200,13 +205,15 @@ def main():
                         <div class="card-title">{d["is_tanimi"]}</div>
                         <div class="card-time">{saat}</div>
                     </div>
-                    <div class="card-desc">👤 {d["personel_ad"]}</div>
+                    <div class="card-label">👤 {d["personel_ad"]}</div>
                 </div>
                 """, unsafe_allow_html=True)
 
     # --- GELECEK İŞLER ---
     elif menu == "🗓️ Gelecek İşler":
-        st.markdown(f'<div class="material-header"><h1>Gelecek Planları</h1><p>Önümüzdeki günler için tanımlanan iş listesi.</p></div>', unsafe_allow_html=True)
+        st.markdown("<h3 class='custom-h'>Gelecek Planları</h3>", unsafe_allow_html=True)
+        st.caption("Önümüzdeki günler için tanımlanan iş listesi.")
+        
         future_tasks = [t for t in data if t.get("deadline", "").split("T")[0] > today_str]
         future_tasks.sort(key=lambda x: x.get("deadline", ""))
         
@@ -219,7 +226,7 @@ def main():
                     <div class="card-title">{ft["is_tanimi"]}</div>
                     <div class="card-time">{dv} - {saat}</div>
                 </div>
-                <div class="card-desc">👤 {ft["personel_ad"]}</div>
+                <div class="card-label">👤 {ft["personel_ad"]}</div>
             </div>
             """, unsafe_allow_html=True)
 
