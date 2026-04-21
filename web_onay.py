@@ -102,25 +102,37 @@ def main():
             st.markdown(f"👤 **{user_name}**")
 
         # --- 1. DASHBOARD ---
-        if menu == "📊 Dashboard":
+       if menu == "📊 Dashboard":
             st.markdown(f"## Hoş Geldin, {user_name.split()[0]} 👋")
             c1, c2, c3, c4 = st.columns(4)
             
             with c1:
-                st.markdown(f'<div class="stat-card"><div class="stat-label">İşlerin</div><div class="stat-val">{my_total}</div></div>', unsafe_allow_html=True)
-                if st.button("📂 İşlerime Git", use_container_width=True):
-                    st.session_state.nav_menu = "📝 Görevlerim"
-                    st.rerun()
+                # Kutuyu st.container(border=True) ile oluşturuyoruz, böylece buton İÇERİDE kalıyor
+                with st.container(border=True):
+                    st.markdown(f"""
+                        <div style="text-align: left;">
+                            <div class="stat-label">İşlerin</div>
+                            <div class="stat-val" style="margin-bottom:10px;">{my_total}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
                     
-            with c2: st.markdown(f'<div class="stat-card"><div class="stat-label">Biten</div><div class="stat-val">{my_done}</div></div>', unsafe_allow_html=True)
-            with c3: st.markdown(f'<div class="stat-card"><div class="stat-label">Ekip</div><div class="stat-val">{team_done}</div></div>', unsafe_allow_html=True)
-            with c4:
-                perf = int((my_done/my_total)*100) if my_total > 0 else 100
-                st.markdown(f'<div class="stat-card"><div class="stat-label">Verim</div><div class="stat-val">%{perf}</div></div>', unsafe_allow_html=True)
+                    # Buton artık kutunun tam içinde ve daha şık
+                    if st.button("📂 İşlerime Git", use_container_width=True, type="primary"):
+                        st.session_state.nav_menu = "📝 Görevlerim"
+                        st.rerun()
+                        
+            with c2: 
+                with st.container(border=True):
+                    st.markdown(f'<div class="stat-label">Biten</div><div class="stat-val">{my_done}</div>', unsafe_allow_html=True)
             
-            st.write("---")
-            st.progress((team_done / len(team_today)) if len(team_today) > 0 else 0)
-
+            with c3: 
+                with st.container(border=True):
+                    st.markdown(f'<div class="stat-label">Ekip</div><div class="stat-val">{team_done}</div>', unsafe_allow_html=True)
+            
+            with c4:
+                with st.container(border=True):
+                    perf = int((my_done/my_total)*100) if my_total > 0 else 100
+                    st.markdown(f'<div class="stat-label">Verim</div><div class="stat-val">%{perf}</div>', unsafe_allow_html=True)
         # --- GÖREVLERİM ---
         elif menu == "📝 Görevlerim":
             st.markdown("## Günlük Görevlerin")
