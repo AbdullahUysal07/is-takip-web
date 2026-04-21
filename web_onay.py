@@ -107,15 +107,19 @@ def main():
             c1, c2, c3, c4 = st.columns(4)
             
             with c1:
-                # 👇 DİKKAT: Bu satırlar 'with c1:'den daha sağda olmalı!
+                # 👇 BU SATIRLAR SAĞA KAYIK OLMALI (Hata almamak için kritik)
                 st.markdown(f'<div class="stat-card"><div class="stat-label">İşlerin</div><div class="stat-val">{my_total}</div></div>', unsafe_allow_html=True)
-                if st.button("📂 İşlerime Git", use_container_width=True):
+                if st.button("📂 İşlerime Git", use_container_width=True, type="primary"):
                     st.session_state.nav_menu = "📝 Görevlerim"
                     st.rerun()
             
-            # c2, c3 ve c4'ü de aynı şekilde hizala
-            with c2: st.markdown(f'<div class="stat-card"><div class="stat-label">Biten</div><div class="stat-val">{my_done}</div></div>', unsafe_allow_html=True)
-            with c3: st.markdown(f'<div class="stat-card"><div class="stat-label">Ekip</div><div class="stat-val">{team_done}</div></div>', unsafe_allow_html=True)
+            with c2: 
+                st.markdown(f'<div class="stat-card"><div class="stat-label">Biten</div><div class="stat-val">{my_done}</div></div>', unsafe_allow_html=True)
+            
+            with c3: 
+                with st.container(): # Ekip kutusu
+                    st.markdown(f'<div class="stat-card"><div class="stat-label">Ekip</div><div class="stat-val">{team_done}</div></div>', unsafe_allow_html=True)
+            
             with c4:
                 perf = int((my_done/my_total)*100) if my_total > 0 else 100
                 st.markdown(f'<div class="stat-card"><div class="stat-label">Verim</div><div class="stat-val">%{perf}</div></div>', unsafe_allow_html=True)
