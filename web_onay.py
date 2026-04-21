@@ -105,43 +105,43 @@ def main():
         if menu == "📊 Dashboard":
             st.markdown(f"## Hoş Geldin, {user_name.split()[0]} 👋")
             
-            # Değişkenlerin boş gelme ihtimaline karşı güvenlik (Crash engelleme)
-            m_total = my_total if 'my_total' in locals() else 0
-            m_done = my_done if 'my_done' in locals() else 0
-            t_done = team_done if 'team_done' in locals() else 0
-            t_today_len = len(team_today) if 'team_today' in locals() else 0
+            # Değişkenlerin varlığını ve doğruluğunu garantiye alıyoruz
+            safe_total = my_total if 'my_total' in locals() else 0
+            safe_done = my_done if 'my_done' in locals() else 0
+            safe_team_done = team_done if 'team_done' in locals() else 0
+            safe_team_total = len(team_today) if 'team_today' in locals() else 0
 
             c1, c2, c3, c4 = st.columns(4)
             
             with c1:
                 with st.container(border=True):
-                    st.markdown(f'<div class="stat-label">İşlerin</div><div class="stat-val" style="margin-bottom:10px;">{m_total}</div>', unsafe_allow_html=True)
-                    # ✅ Navigasyon Fix: nav_menu key'ini güncelliyoruz
+                    st.markdown(f'<div class="stat-label">İşlerin</div><div class="stat-val" style="margin-bottom:10px;">{safe_total}</div>', unsafe_allow_html=True)
+                    # ✅ Navigasyon Düzeltmesi
                     if st.button("📂 İşlerime Git", use_container_width=True, type="primary"):
                         st.session_state.nav_menu = "📝 Görevlerim"
                         st.rerun()
             
             with c2: 
                 with st.container(border=True):
-                    st.markdown(f'<div class="stat-label">Biten</div><div class="stat-val">{m_done}</div>', unsafe_allow_html=True)
-                    st.write("") # Görsel hizalama için boşluk
+                    st.markdown(f'<div class="stat-label">Biten</div><div class="stat-val">{safe_done}</div>', unsafe_allow_html=True)
+                    st.write("") # Hizalama boşluğu
             
             with c3: 
                 with st.container(border=True):
-                    st.markdown(f'<div class="stat-label">Ekip</div><div class="stat-val">{t_done}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="stat-label">Ekip</div><div class="stat-val">{safe_team_done}</div>', unsafe_allow_html=True)
                     st.write("")
             
             with c4:
                 with st.container(border=True):
-                    # Sıfıra bölünme hatasını engellemek için kontrol
-                    perf = int((m_done/m_total)*100) if m_total > 0 else 100
+                    # Sıfıra bölünme korumalı verim hesabı
+                    perf = int((safe_done / safe_total) * 100) if safe_total > 0 else 100
                     st.markdown(f'<div class="stat-label">Verim</div><div class="stat-val">%{perf}</div>', unsafe_allow_html=True)
                     st.write("")
             
             st.write("---")
-            # İlerleme çubuğu güvenli hesaplama
-            progress_val = (t_done / t_today_len) if t_today_len > 0 else 0
-            st.progress(progress_val)
+            # İlerleme çubuğu
+            p_val = (safe_team_done / safe_team_total) if safe_team_total > 0 else 0
+            st.progress(p_val)
         # --- GÖREVLERİM ---
         elif menu == "📝 Görevlerim":
             st.markdown("## Günlük Görevlerin")
