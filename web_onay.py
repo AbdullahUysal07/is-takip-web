@@ -114,12 +114,12 @@ def main():
             c1, c2, c3, c4 = st.columns(4)
             
             with c1:
-                with st.container(border=True):
-                    st.markdown(f'<div class="stat-label">İşlerin</div><div class="stat-val" style="margin-bottom:10px;">{safe_total}</div>', unsafe_allow_html=True)
-                    # ✅ Navigasyon Düzeltmesi
-                    if st.button("📂 İşlerime Git", use_container_width=True, type="primary"):
-                        st.session_state.nav_menu = "📝 Görevlerim"
-                        st.rerun()
+        st.markdown(f'<div class="stat-card"><div class="stat-label">İşlerin</div><div class="stat-val">{my_total}</div></div>', unsafe_allow_html=True)
+    
+        # Butona basınca yönlendirme yapan kısım:
+        if st.button("📂 İşlerime Git", use_container_width=True):
+        st.session_state.nav_menu = "📝 Görevlerim"
+        st.rerun()
             
             with c2: 
                 with st.container(border=True):
